@@ -36,6 +36,8 @@ format:
     fig-width: 8
     fig-height: 6
     theme: cosmo
+    embed-resources: true
+    self-contained-math: true
 execute:
   echo: true
   warning: false
