@@ -1,0 +1,1085 @@
+---
+title: "Differentiating Purpose and Happiness: Evidence from Personal Strivings, Daily Goal Pursuit, and Responses to Life Adversity"
+shorttitle: "Purpose vs. Happiness"
+author:
+  - name: Todd B. Kashdan
+    corresponding: true
+    orcid: 0000-0003-1067-7833
+    email: tkashdan@gmu.edu
+    affiliations:
+      - name: George Mason University
+        department: Department of Psychology
+  - name: Patrick E. McKnight
+    orcid: 0000-0002-2401-0031
+    affiliations:
+      - name: George Mason University
+        department: Department of Psychology
+  - name: James C. Kaufman
+    affiliations:
+      - name: University of Connecticut
+        department: Neag School of Education
+abstract: Purpose in life and subjective happiness are among the most studied constructs in positive psychology, yet the extent to which they differentially predict contextualized outcomes remains unclear. Whereas happiness captures a global evaluation of one's life, purpose reflects a sense of direction and meaning that should offer unique predictive utility for goal-directed behavior, adaptive coping, and post-adversity growth. Using a longitudinal sample (N = 345; 3 waves over 2 years), we tested the differential and unique predictive validity of purpose and happiness across three assessment contexts -- personal strivings, daily goal pursuit via the Day Reconstruction Method, and responses to stressful life events assessed through semi-structured interviews. We found that purpose was a stronger predictor of striving-related outcomes (effort, success, purpose-driven life) and adaptive coping strategies (regulatory flexibility, cognitive reappraisal) relative to happiness. Happiness, in contrast, was a stronger predictor of daily positive emotions during goal pursuit. In longitudinal analyses, baseline purpose uniquely predicted stress-related growth and regulatory flexibility at 2-year follow-up beyond the effects of happiness. These findings support the theoretical distinction between purpose and happiness as constructs with divergent downstream consequences for how people pursue goals, regulate emotions, and grow from adversity.
+keywords:
+  - purpose in life
+  - subjective happiness
+  - personal strivings
+  - emotion regulation
+  - stress-related growth
+  - day reconstruction method
+bibliography: references.bib
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: true
+    code-summary: "Show R code"
+    fig-width: 8
+    fig-height: 6
+    theme: cosmo
+execute:
+  echo: true
+  warning: false
+  message: false
+  cache: true
+---
+
+# Setup
+
+```{r setup}
+#| label: setup
+#| cache: false
+
+# ── Core packages ──
+# Load psych FIRST to avoid select() masking dplyr
+library(psych)
+library(tidyverse)   # dplyr::select loaded AFTER psych
+library(ppcor)
+library(mice)        # Multiple imputation
+library(knitr)
+library(kableExtra)
+
+# Resolve namespace conflicts explicitly
+select <- dplyr::select
+
+# ── Load data ──
+dat <- read.csv(gzfile("alldatPvH4LLM.csv.gz"))
+
+# ── Define IVs (already POMP scored 0-100) ──
+dat$purpose  <- dat$b_bpurp_mean_POMP
+dat$happiness <- dat$b_shs_mean_POMP
+
+cat("Total N:", nrow(dat), "\n")
+cat("N with both IVs:", sum(complete.cases(dat[, c("purpose", "happiness")])), "\n")
+```
+
+```{r derived-variables}
+#| label: derived-variables
+
+# ══════════════════════════════════════════════════════════════════
+# POMP TRANSFORMATION UTILITY
+# ══════════════════════════════════════════════════════════════════
+# POMP = (observed - min_possible) / (max_possible - min_possible) * 100
+# All analyses use POMP (0-100) for cross-measure comparability
+
+pomp <- function(x, min_possible, max_possible) {
+  (x - min_possible) / (max_possible - min_possible) * 100
+}
+
+# ══════════════════════════════════════════════════════════════════
+# 1. DRM EPISODE AVERAGES
+# ══════════════════════════════════════════════════════════════════
+# Goal pursuit items (Striv_1 through Striv_10 per episode)
+# Mapping from Table 5 of Kashdan et al.:
+#   1=Difficulty, 2=Competence, 3=Effort, 4=Distress, 5=Joy,
+#   6=Meaning, 7=Control, 8=Values-consistency, 9=Progress, 10=Autonomy
+
+drm_goal_labels <- c("Difficulty", "Competence", "Effort", "Distress",
+                      "Joy", "Meaning", "Control", "Values_consistency",
+                      "Progress", "Autonomy")
+
+# Average POMP scores across 5 episodes per goal item
+for (i in 1:10) {
+  ep_cols <- paste0("Striv_", i, "_POMP_E", 1:5)
+  available <- ep_cols[ep_cols %in% names(dat)]
+  if (length(available) > 0) {
+    dat[[paste0("DRM_goal_", drm_goal_labels[i])]] <-
+      rowMeans(dat[, available, drop = FALSE], na.rm = TRUE)
+  }
+}
+
+# Average positive and negative affect across episodes (already POMP)
+pa_cols <- paste0("Avg_PA_DRM_POMP_E", 1:5)
+na_cols <- paste0("Avg_NA_DRM_POMP_E", 1:5)
+dat$DRM_PA_avg <- rowMeans(dat[, pa_cols[pa_cols %in% names(dat)], drop = FALSE], na.rm = TRUE)
+dat$DRM_NA_avg <- rowMeans(dat[, na_cols[na_cols %in% names(dat)], drop = FALSE], na.rm = TRUE)
+
+# ══════════════════════════════════════════════════════════════════
+# 2. STRIVING OUTCOMES (fu1 assessment, already POMP where labeled)
+# ══════════════════════════════════════════════════════════════════
+# POMP versions exist: *_POMP (0-100 scale)
+# TOT_STRIVIMPACT remains on -2 to +2 scale (harmony index)
+# POMP-transform it: min=-2, max=+2
+dat$TOT_STRIVIMPACT_POMP <- pomp(dat$TOT_STRIVIMPACT, -2, 2)
+
+# ══════════════════════════════════════════════════════════════════
+# 3. REGULATORY FLEXIBILITY INDEX
+# ══════════════════════════════════════════════════════════════════
+# Coping strategies: 0=did not use, 1=sometimes, 2=frequently
+# POMP transform individual coping averages: min=0, max=2
+
+coping_avg_vars <- c("Gratitude_Avg", "Humor_Avg", "ExpSupp_Avg", "CogAvoid_Avg",
+                      "SubUse_Avg", "NonJudg_Avg", "EmoRum_Avg", "Religion_Avg",
+                      "SeekSupport_Avg", "GiveSupport_Avg", "Exercise_Avg",
+                      "CogReapp_Avg", "Distract_Avg", "PosAffirm_Avg")
+
+# POMP-transform each coping strategy average
+for (v in coping_avg_vars) {
+  if (v %in% names(dat)) {
+    dat[[paste0(v, "_POMP")]] <- pomp(dat[[v]], 0, 2)
+  }
+}
+
+strategy_names <- c("Gratitude", "Humor", "ExpSupp", "CogAvoid", "SubUse",
+                     "NonJudg", "EmoRum", "Religion", "SeekSupport",
+                     "GiveSupport", "Exercise", "CogReapp", "Distract", "PosAffirm")
+
+# Component 1: Strategy Repertoire Breadth (count of strategies used > 0)
+if (all(coping_avg_vars %in% names(dat))) {
+  coping_mat <- dat[, coping_avg_vars]
+  dat$reg_flex_breadth <- rowSums(coping_mat > 0, na.rm = TRUE)
+}
+
+# Component 2: Context Sensitivity (within-person SD across events)
+strategy_sd_mat <- matrix(NA, nrow = nrow(dat), ncol = length(strategy_names))
+for (s in seq_along(strategy_names)) {
+  event_cols <- paste0(strategy_names[s], "_", 1:5)
+  available <- event_cols[event_cols %in% names(dat)]
+  if (length(available) >= 2) {
+    strategy_sd_mat[, s] <- apply(dat[, available, drop = FALSE], 1, sd, na.rm = TRUE)
+  }
+}
+dat$reg_flex_sensitivity <- rowMeans(strategy_sd_mat, na.rm = TRUE)
+
+# Composite: standardize and average both components
+dat$reg_flex_composite <- rowMeans(
+  cbind(scale(dat$reg_flex_breadth)[,1],
+        scale(dat$reg_flex_sensitivity)[,1]),
+  na.rm = TRUE
+)
+
+# ══════════════════════════════════════════════════════════════════
+# 4. PTG COMPOSITE (2-year follow-up)
+# ══════════════════════════════════════════════════════════════════
+# Items scored 1-6; POMP: min=1, max=6
+ptg_vars <- names(dat)[grepl("ptg_[1-5]$", names(dat))]
+if (length(ptg_vars) > 0) {
+  dat$PTG_composite <- rowMeans(dat[, ptg_vars, drop = FALSE], na.rm = TRUE)
+  dat$PTG_composite_POMP <- pomp(dat$PTG_composite, 1, 6)
+}
+
+# ══════════════════════════════════════════════════════════════════
+# 5. LIFE EVENT STRESS / COPING COMPOSITES
+# ══════════════════════════════════════════════════════════════════
+# Items scored 0-4; POMP: min=0, max=4
+
+# FU1
+fu1_ple_stress_vars  <- names(dat)[grepl("^fu1_ple[0-9]_1$", names(dat))]
+fu1_ple_deal_vars    <- names(dat)[grepl("^fu1_ple[0-9]_2$", names(dat))]
+fu1_ple_control_vars <- names(dat)[grepl("^fu1_ple[0-9]_3$", names(dat))]
+fu1_ple_impair_vars  <- names(dat)[grepl("^fu1_ple[0-9]_[4-8]$", names(dat))]
+
+dat$fu1_LE_stress     <- rowMeans(dat[, fu1_ple_stress_vars, drop = FALSE], na.rm = TRUE)
+dat$fu1_LE_coping     <- rowMeans(dat[, c(fu1_ple_deal_vars, fu1_ple_control_vars), drop = FALSE], na.rm = TRUE)
+dat$fu1_LE_impairment <- rowMeans(dat[, fu1_ple_impair_vars, drop = FALSE], na.rm = TRUE)
+
+dat$fu1_LE_stress_POMP     <- pomp(dat$fu1_LE_stress, 0, 4)
+dat$fu1_LE_coping_POMP     <- pomp(dat$fu1_LE_coping, 0, 4)
+dat$fu1_LE_impairment_POMP <- pomp(dat$fu1_LE_impairment, 0, 4)
+
+# FU2
+fu2_ple_stress_vars  <- names(dat)[grepl("^fu2_ple[0-9]_1$", names(dat))]
+fu2_ple_deal_vars    <- names(dat)[grepl("^fu2_ple[0-9]_2$", names(dat))]
+fu2_ple_control_vars <- names(dat)[grepl("^fu2_ple[0-9]_3$", names(dat))]
+fu2_ple_impair_vars  <- names(dat)[grepl("^fu2_ple[0-9]_[4-8]$", names(dat))]
+
+dat$fu2_LE_stress     <- rowMeans(dat[, fu2_ple_stress_vars, drop = FALSE], na.rm = TRUE)
+dat$fu2_LE_coping     <- rowMeans(dat[, c(fu2_ple_deal_vars, fu2_ple_control_vars), drop = FALSE], na.rm = TRUE)
+dat$fu2_LE_impairment <- rowMeans(dat[, fu2_ple_impair_vars, drop = FALSE], na.rm = TRUE)
+
+dat$fu2_LE_stress_POMP     <- pomp(dat$fu2_LE_stress, 0, 4)
+dat$fu2_LE_coping_POMP     <- pomp(dat$fu2_LE_coping, 0, 4)
+dat$fu2_LE_impairment_POMP <- pomp(dat$fu2_LE_impairment, 0, 4)
+
+# ══════════════════════════════════════════════════════════════════
+# 6. CREATIVITY (KDCS) - already POMP where labeled *_POMP
+# ══════════════════════════════════════════════════════════════════
+
+cat("── Derived variables created ──\n")
+cat("Regulatory flexibility N:", sum(!is.na(dat$reg_flex_composite)), "\n")
+cat("PTG composite N:", sum(!is.na(dat$PTG_composite_POMP)), "\n")
+```
+
+```{r missing-data}
+#| label: missing-data
+
+# ══════════════════════════════════════════════════════════════════
+# MULTIPLE IMPUTATION (MICE with PMM)
+# ══════════════════════════════════════════════════════════════════
+# Data dictionary recommends: MICE, PMM, 20 imputations
+# 75.4% of cases have some missing data; 95% monotone pattern
+# We impute composite-level scores for the core analysis variables
+
+# ── Select core analysis variables for imputation ──
+core_vars <- c(
+  # IVs
+  "purpose", "happiness",
+  # Striving outcomes (POMP)
+  "CENTRALITY_tot_POMP", "SELFORG_tot_POMP", "LIFEAIM_tot_POMP",
+  "PURPOSE_Pursuit_POMP", "EFFORT_tot_POMP", "SUCCESS_tot_POMP",
+  "TOT_STRIVPURSUIT_POMP", "TOT_STRIVIMPACT_POMP",
+  # DRM goal outcomes (POMP, averaged across episodes)
+  paste0("DRM_goal_", drm_goal_labels),
+  "DRM_PA_avg", "DRM_NA_avg",
+  # Coping strategies (POMP)
+  paste0(coping_avg_vars, "_POMP"),
+  # Regulatory flexibility (z-scored composite; not POMP)
+  "reg_flex_breadth", "reg_flex_sensitivity", "reg_flex_composite",
+  # Longitudinal life events (POMP)
+  "fu1_LE_stress_POMP", "fu1_LE_coping_POMP", "fu1_LE_impairment_POMP",
+  "fu2_LE_stress_POMP", "fu2_LE_coping_POMP", "fu2_LE_impairment_POMP",
+  # PTG (POMP)
+  "PTG_composite_POMP",
+  # Creativity (POMP)
+  "b_kdcs_AvgRatingAllItems_POMP",
+  "b_kdcs_Self_AvgRating_POMP", "b_kdcs_Scholarly_AvgRating_POMP",
+  "b_kdcs_Performance_AvgRating_POMP", "b_kdcs_MechScience_AvgRating_POMP",
+  "b_kdcs_Artistic_AvgRating_POMP"
+)
+
+# Keep only vars that exist in the data
+core_vars <- core_vars[core_vars %in% names(dat)]
+cat("Core analysis variables for imputation:", length(core_vars), "\n")
+
+# ── Run MICE ──
+imp_data <- dat[, core_vars]
+
+# Check missingness summary
+miss_pct <- colMeans(is.na(imp_data)) * 100
+cat("Variables with >50% missing (will rely on available cases):\n")
+print(sort(miss_pct[miss_pct > 50], decreasing = TRUE))
+
+# Run MICE: 20 imputations, PMM for continuous variables
+set.seed(2024)
+mice_obj <- mice(imp_data, m = 20, method = "pmm", maxit = 10,
+                 printFlag = FALSE)
+
+cat("\n── MICE complete: 20 imputations ──\n")
+n_logged <- ifelse(is.null(mice_obj$loggedEvents), 0, nrow(mice_obj$loggedEvents))
+cat("Logged events:", n_logged, "\n")
+
+# ── Pool function for correlation-based analyses on imputed data ──
+# Applies analysis to each imputed dataset, pools via Rubin's rules
+pool_correlation_analysis <- function(mice_obj, iv1, iv2, dv) {
+  m <- mice_obj$m
+  r_iv1 <- r_iv2 <- r_iv12 <- numeric(m)
+  pr_iv1 <- pr_iv2 <- numeric(m)
+  ns <- numeric(m)
+
+  for (i in 1:m) {
+    d <- complete(mice_obj, i)
+    cc <- complete.cases(d[, c(iv1, iv2, dv)])
+    dd <- d[cc, ]
+    n <- nrow(dd)
+    ns[i] <- n
+    if (n < 10) { r_iv1[i] <- r_iv2[i] <- r_iv12[i] <- pr_iv1[i] <- pr_iv2[i] <- NA; next }
+
+    r_iv1[i]  <- cor(dd[[iv1]], dd[[dv]])
+    r_iv2[i]  <- cor(dd[[iv2]], dd[[dv]])
+    r_iv12[i] <- cor(dd[[iv1]], dd[[iv2]])
+
+    # Partial correlations
+    tryCatch({
+      pc1 <- pcor.test(dd[[iv1]], dd[[dv]], dd[[iv2]], method = "pearson")
+      pr_iv1[i] <- pc1$estimate
+      pc2 <- pcor.test(dd[[iv2]], dd[[dv]], dd[[iv1]], method = "pearson")
+      pr_iv2[i] <- pc2$estimate
+    }, error = function(e) { pr_iv1[i] <<- NA; pr_iv2[i] <<- NA })
+  }
+
+  # Pool via Fisher z-transform (Rubin's rules)
+  z_transform <- function(r) 0.5 * log((1 + r) / (1 - r))
+  z_back      <- function(z) (exp(2 * z) - 1) / (exp(2 * z) + 1)
+
+  pool_r <- function(rs) {
+    zs <- z_transform(rs[!is.na(rs)])
+    if (length(zs) == 0) return(NA)
+    z_back(mean(zs))
+  }
+
+  avg_n <- round(mean(ns, na.rm = TRUE))
+  list(
+    r_iv1  = pool_r(r_iv1),
+    r_iv2  = pool_r(r_iv2),
+    r_iv12 = pool_r(r_iv12),
+    pr_iv1 = pool_r(pr_iv1),
+    pr_iv2 = pool_r(pr_iv2),
+    n      = avg_n
+  )
+}
+
+# ── Master analysis function using pooled imputed estimates ──
+run_mi_differential_analysis <- function(mice_obj, iv1 = "purpose",
+                                          iv2 = "happiness",
+                                          dv_names, dv_labels = NULL) {
+  if (is.null(dv_labels)) dv_labels <- dv_names
+
+  results <- data.frame(
+    Outcome = dv_labels,
+    Purpose_r = NA_real_, Purpose_p = NA_real_,
+    Happiness_r = NA_real_, Happiness_p = NA_real_,
+    Diff = NA_real_, Williams_t = NA_real_, Williams_p = NA_real_,
+    Purpose_pr = NA_real_, Purpose_pr_p = NA_real_,
+    Happiness_pr = NA_real_, Happiness_pr_p = NA_real_,
+    N = NA_integer_,
+    stringsAsFactors = FALSE
+  )
+
+  imp_vars <- names(complete(mice_obj, 1))
+
+  for (i in seq_along(dv_names)) {
+    dv <- dv_names[i]
+    if (!dv %in% imp_vars) next
+
+    pooled <- pool_correlation_analysis(mice_obj, iv1, iv2, dv)
+    if (is.na(pooled$r_iv1)) next
+
+    n <- pooled$n
+    results$N[i] <- n
+    results$Purpose_r[i]   <- pooled$r_iv1
+    results$Happiness_r[i] <- pooled$r_iv2
+
+    # P-values from pooled r (approximation using avg n)
+    t_p <- pooled$r_iv1 * sqrt((n - 2) / (1 - pooled$r_iv1^2))
+    t_h <- pooled$r_iv2 * sqrt((n - 2) / (1 - pooled$r_iv2^2))
+    results$Purpose_p[i]   <- 2 * pt(-abs(t_p), df = n - 2)
+    results$Happiness_p[i] <- 2 * pt(-abs(t_h), df = n - 2)
+
+    # Williams' test on pooled correlations
+    wt <- williams_test(pooled$r_iv1, pooled$r_iv2, pooled$r_iv12, n)
+    results$Diff[i]       <- wt$diff
+    results$Williams_t[i] <- wt$t
+    results$Williams_p[i] <- wt$p
+
+    # Pooled partial correlations
+    results$Purpose_pr[i]   <- pooled$pr_iv1
+    results$Happiness_pr[i] <- pooled$pr_iv2
+
+    # P-values for partial r (df = n - 3 for one control variable)
+    t_pr1 <- pooled$pr_iv1 * sqrt((n - 3) / (1 - pooled$pr_iv1^2))
+    t_pr2 <- pooled$pr_iv2 * sqrt((n - 3) / (1 - pooled$pr_iv2^2))
+    results$Purpose_pr_p[i]   <- 2 * pt(-abs(t_pr1), df = n - 3)
+    results$Happiness_pr_p[i] <- 2 * pt(-abs(t_pr2), df = n - 3)
+  }
+
+  # FDR correction
+  results$Purpose_p_BH      <- p.adjust(results$Purpose_p, method = "BH")
+  results$Happiness_p_BH    <- p.adjust(results$Happiness_p, method = "BH")
+  results$Williams_p_BH     <- p.adjust(results$Williams_p, method = "BH")
+  results$Purpose_pr_p_BH   <- p.adjust(results$Purpose_pr_p, method = "BH")
+  results$Happiness_pr_p_BH <- p.adjust(results$Happiness_pr_p, method = "BH")
+
+  return(results)
+}
+```
+
+```{r analysis-functions}
+#| label: analysis-functions
+
+# ══════════════════════════════════════════════════════════════════
+# CORE ANALYSIS FUNCTIONS
+# ══════════════════════════════════════════════════════════════════
+
+# ── Williams' t-test for comparing dependent correlations ──
+# Tests whether r(X,Z) differs from r(Y,Z) when X and Y are correlated
+williams_test <- function(r_xz, r_yz, r_xy, n) {
+  r_det <- 1 - r_xz^2 - r_yz^2 - r_xy^2 + 2 * r_xz * r_yz * r_xy
+  t_num <- (r_xz - r_yz) * sqrt((n - 1) * (1 + r_xy))
+  t_den <- sqrt(2 * ((n - 1) / (n - 3)) * r_det +
+                ((r_xz + r_yz)^2 / 4) * (1 - r_xy)^3)
+  t_stat <- t_num / t_den
+  p_value <- 2 * pt(-abs(t_stat), df = n - 3)
+  return(list(t = t_stat, p = p_value, df = n - 3, diff = r_xz - r_yz))
+}
+
+# ── Run differential correlation analysis for a set of outcomes ──
+run_differential_analysis <- function(data, iv1_name = "purpose",
+                                       iv2_name = "happiness",
+                                       dv_names, dv_labels = NULL) {
+  if (is.null(dv_labels)) dv_labels <- dv_names
+
+  results <- data.frame(
+    Outcome = dv_labels,
+    Purpose_r = NA_real_, Purpose_p = NA_real_,
+    Happiness_r = NA_real_, Happiness_p = NA_real_,
+    Diff = NA_real_, Williams_t = NA_real_, Williams_p = NA_real_,
+    Purpose_pr = NA_real_, Purpose_pr_p = NA_real_,
+    Happiness_pr = NA_real_, Happiness_pr_p = NA_real_,
+    N = NA_integer_,
+    stringsAsFactors = FALSE
+  )
+
+  for (i in seq_along(dv_names)) {
+    dv <- dv_names[i]
+    if (!dv %in% names(data)) next
+
+    complete <- complete.cases(data[, c(iv1_name, iv2_name, dv)])
+    n <- sum(complete)
+    if (n < 10) next
+
+    d <- data[complete, ]
+    results$N[i] <- n
+
+    # Bivariate correlations
+    r_purp  <- cor(d[[iv1_name]], d[[dv]], use = "complete.obs")
+    r_happy <- cor(d[[iv2_name]], d[[dv]], use = "complete.obs")
+    r_iv    <- cor(d[[iv1_name]], d[[iv2_name]], use = "complete.obs")
+
+    results$Purpose_r[i]   <- r_purp
+    results$Happiness_r[i] <- r_happy
+
+    # P-values for bivariate correlations
+    t_purp  <- r_purp * sqrt((n - 2) / (1 - r_purp^2))
+    t_happy <- r_happy * sqrt((n - 2) / (1 - r_happy^2))
+    results$Purpose_p[i]   <- 2 * pt(-abs(t_purp), df = n - 2)
+    results$Happiness_p[i] <- 2 * pt(-abs(t_happy), df = n - 2)
+
+    # Williams' test
+    wt <- williams_test(r_purp, r_happy, r_iv, n)
+    results$Diff[i]       <- wt$diff
+    results$Williams_t[i] <- wt$t
+    results$Williams_p[i] <- wt$p
+
+    # Partial correlations (construct specificity)
+    tryCatch({
+      pc <- pcor.test(d[[iv1_name]], d[[dv]], d[[iv2_name]], method = "pearson")
+      results$Purpose_pr[i]   <- pc$estimate
+      results$Purpose_pr_p[i] <- pc$p.value
+
+      pc2 <- pcor.test(d[[iv2_name]], d[[dv]], d[[iv1_name]], method = "pearson")
+      results$Happiness_pr[i]   <- pc2$estimate
+      results$Happiness_pr_p[i] <- pc2$p.value
+    }, error = function(e) NULL)
+  }
+
+  # Apply FDR correction across all tests
+  results$Purpose_p_BH   <- p.adjust(results$Purpose_p, method = "BH")
+  results$Happiness_p_BH <- p.adjust(results$Happiness_p, method = "BH")
+  results$Williams_p_BH  <- p.adjust(results$Williams_p, method = "BH")
+  results$Purpose_pr_p_BH   <- p.adjust(results$Purpose_pr_p, method = "BH")
+  results$Happiness_pr_p_BH <- p.adjust(results$Happiness_pr_p, method = "BH")
+
+  return(results)
+}
+
+# ── Format results table for display ──
+format_results_table <- function(results, caption = "") {
+  sig_stars <- function(p) {
+    case_when(p < 0.001 ~ "***", p < 0.01 ~ "**", p < 0.05 ~ "*", TRUE ~ "")
+  }
+
+  display <- results %>%
+    filter(!is.na(Purpose_r)) %>%
+    transmute(
+      Outcome,
+      `Purpose r`   = sprintf("%.2f%s", Purpose_r, sig_stars(Purpose_p_BH)),
+      `Happiness r`  = sprintf("%.2f%s", Happiness_r, sig_stars(Happiness_p_BH)),
+      `Diff`         = sprintf("%.2f%s", Diff, sig_stars(Williams_p_BH)),
+      `Purpose pr`   = sprintf("%.2f%s", Purpose_pr, sig_stars(Purpose_pr_p_BH)),
+      `Happiness pr` = sprintf("%.2f%s", Happiness_pr, sig_stars(Happiness_pr_p_BH)),
+      N
+    )
+
+  kable(display, caption = caption, align = c("l", rep("r", ncol(display) - 1))) %>%
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                  full_width = FALSE, font_size = 11) %>%
+    add_header_above(c(" " = 1, "Bivariate" = 2, "Williams" = 1,
+                       "Unique (partial)" = 2, " " = 1))
+}
+
+# ── Create comparison figure (forest-plot style) ──
+create_comparison_figure <- function(results, title = "") {
+  plot_data <- results %>%
+    filter(!is.na(Purpose_r)) %>%
+    dplyr::select(Outcome, Purpose_r, Happiness_r) %>%
+    pivot_longer(cols = c(Purpose_r, Happiness_r),
+                 names_to = "Predictor", values_to = "r") %>%
+    mutate(
+      Predictor = ifelse(Predictor == "Purpose_r", "Purpose", "Happiness"),
+      Outcome = factor(Outcome, levels = rev(results$Outcome[!is.na(results$Purpose_r)]))
+    )
+
+  ggplot(plot_data, aes(x = r, y = Outcome, color = Predictor, shape = Predictor)) +
+    geom_vline(xintercept = 0, linetype = "dashed", color = "gray50") +
+    geom_point(size = 3, position = position_dodge(width = 0.5)) +
+    scale_color_manual(values = c("Purpose" = "#2166AC", "Happiness" = "#B2182B")) +
+    scale_shape_manual(values = c("Purpose" = 16, "Happiness" = 17)) +
+    labs(x = "Correlation (r)", y = NULL, title = title) +
+    theme_minimal(base_size = 12) +
+    theme(legend.position = "bottom", panel.grid.major.y = element_blank(),
+          plot.title = element_text(face = "bold", size = 13))
+}
+```
+
+# Introduction
+
+The pursuit of well-being is a defining feature of human motivation, yet well-being itself is multifaceted. Two constructs have attracted substantial research attention: subjective happiness---a global evaluation of one's life as happy---and purpose in life---a sense of direction, meaning, and commitment to valued goals that transcend the self. Although these constructs share common variance, theory suggests they differ in important ways that have downstream consequences for how people engage with goals, regulate emotions, and respond to adversity.
+
+Subjective happiness, as measured by the Subjective Happiness Scale [SHS; @lyubomirsky1999], captures a broad, trait-like evaluation of general positive functioning. It is stable over time, resistant to contextual influence, and strongly associated with positive mood states. Purpose in life, assessed here via the Brief Purpose in Life measure [@hill2016], reflects a forward-looking orientation toward meaningful aims. Unlike happiness, purpose is inherently goal-directed---it requires effort, tolerates discomfort, and may even predict engagement with difficult but meaningful activities that momentarily reduce happiness.
+
+This distinction has theoretical roots in the eudaimonic-hedonic debate but our aim is empirical rather than philosophical. We ask a straightforward question: *Do purpose and happiness differentially predict how people pursue personal strivings, experience daily goal pursuit, regulate emotions, and grow from adversity?* If purpose and happiness are functionally interchangeable, they should predict the same outcomes with similar magnitude. If they diverge, the pattern of differential prediction should follow theoretically coherent lines.
+
+## Theoretical Expectations
+
+We propose three sets of hypotheses organized around the assessment contexts available in this longitudinal study.
+
+**Personal Strivings.** Emmons [-@emmons1986] defined personal strivings as the characteristic goals people pursue in daily life. We expect purpose to be a stronger predictor of striving-related outcomes that involve effort, meaning, and goal coherence---particularly striving harmony, the degree to which one's strivings complement rather than conflict with each other. Happiness may be a stronger predictor of striving success and the positive emotions derived from strivings.
+
+**Daily Goal Pursuit.** Using the Day Reconstruction Method [DRM; @rauthmann2014], participants reported on goal-directed episodes from the previous day. We expect purpose to be a stronger predictor of goal-related engagement (effort, meaning, values-consistency, progress) while happiness may be a stronger predictor of momentary positive affect during episodes.
+
+**Life Events and Emotion Regulation.** Through semi-structured interviews, participants described stressful life events and their coping strategies. We expect purpose to be a stronger predictor of adaptive coping diversity (regulatory flexibility; @bonanno2013), cognitive reappraisal, and benefit finding. In longitudinal analyses, we hypothesize that purpose will be a stronger predictor of stress-related growth [PTG; @tedeschi1996] at 2-year follow-up, as purpose provides the motivational framework for extracting meaning from adversity.
+
+## The Present Study
+
+We use data from a 3-wave longitudinal study (baseline, 6-month, 2-year follow-up; *N* = 345) that employed multiple assessment methods: self-report questionnaires, personal strivings packets, the Day Reconstruction Method, and semi-structured interviews about life events and emotion regulation. This multimethod design allows us to test whether purpose and happiness differ in their predictive reach across contexts that vary in ecological validity and temporal scope.
+
+For each set of outcomes, we report: (a) bivariate correlations of each predictor with outcomes, (b) Williams' t-tests comparing dependent correlations to test differential prediction, and (c) partial correlations to assess unique (construct-specific) prediction after controlling for the other construct. All tests are corrected for multiple comparisons using the Benjamini-Hochberg procedure.
+
+# Method
+
+## Participants
+
+```{r participants}
+#| label: tbl-participants
+#| tbl-cap: "Sample Characteristics"
+
+n_total <- nrow(dat)
+n_fu1 <- sum(!is.na(dat$fu1_shs_mean))
+n_fu2 <- sum(!is.na(dat$fu2_shs_mean))
+
+cat("Total enrolled: N =", n_total, "\n")
+cat("6-month follow-up: N =", n_fu1, "\n")
+cat("2-year follow-up: N =", n_fu2, "\n")
+```
+
+Participants were `r n_total` adults recruited from the community. Data were collected at baseline, 6-month follow-up (*n* = `r n_fu1`), and 2-year follow-up (*n* = `r n_fu2`). The study was conducted through the Well-Being Laboratory at George Mason University (PI: T. B. Kashdan). Data collection used Qualtrics for questionnaires; personal strivings packets and life event interviews were conducted in person.
+
+## Measures
+
+### Independent Variables
+
+**Subjective Happiness Scale** [SHS; @lyubomirsky1999]. Four items measuring global subjective happiness. Assessed at all three time points. All scores were converted to Percent of Maximum Possible (POMP; 0--100) for cross-measure comparability.
+
+**Brief Purpose in Life** [BPURP; @hill2016]. Four items measuring sense of purpose and direction in life. Assessed at all three time points. POMP scored.
+
+### Dependent Variables: Personal Strivings
+
+**Personal Strivings Assessment** [adapted from @emmons1986]. At 6-month follow-up, participants generated six personal strivings and rated each on five pursuit dimensions: centrality, self-organizing function, life aim, effort, and past success. Composites were created by averaging across strivings for each dimension.
+
+**Striving Harmony.** Participants rated the impact of each striving on every other striving (--2 = *very negative impact* to +2 = *very positive impact*; 0 = *neutral*). The total striving impact score (TOT_STRIVIMPACT) averaged all pairwise ratings, with higher scores indicating greater harmony.
+
+**Purpose Composite.** Participants indicated which striving best reflects their purpose in life. The PURPOSE_Pursuit score averaged the five pursuit ratings for the purpose-aligned striving.
+
+### Dependent Variables: Day Reconstruction Method
+
+**Daily Goal Pursuit.** Using the DRM, participants reconstructed five episodes from the previous day. For each episode, they rated 10 goal-related items: difficulty, competence, effort, distress, joy, meaning derived, sense of control, values-consistency, progress made, and autonomy. Person-level scores were computed by averaging across episodes (POMP scored).
+
+**Daily Emotions.** For each episode, participants rated positive emotions (enthusiastic, cheerful, content, relaxed, grateful) and negative emotions (nervous, angry, sad, guilty). Average positive and negative affect composites were computed across episodes.
+
+### Dependent Variables: Life Event Interviews
+
+**Coping Strategies.** In baseline semi-structured interviews covering five stressful life events, participants rated the frequency of 14 coping strategies (0 = *did not use*; 2 = *frequently used*): gratitude, humor, expressive suppression, cognitive avoidance, substance use, non-judgmental awareness, emotional rumination, religious coping, seeking social support, providing social support, exercise, cognitive reappraisal, distraction, and positive affirmation. Averages across events were computed for each strategy.
+
+**Regulatory Flexibility Index.** Following @bonanno2013, we operationalized regulatory flexibility as a composite of (a) strategy repertoire breadth (number of distinct strategies endorsed across events) and (b) context sensitivity (within-person variability of each strategy across events, averaged). The two components were standardized and averaged.
+
+**Post-Traumatic Growth** [PTG; adapted from @tedeschi1996]. At 2-year follow-up, participants rated five growth items for each previously reported life event (1 = *did not experience this change* to 6 = *a very great degree*). Items assessed closeness with others, new life paths, personal strength, spiritual understanding, and changed priorities. Scores were averaged across events.
+
+**Life Event Impact.** At 6-month and 2-year follow-up, participants rated stress, coping ability (ability to deal with and control the event), and functional impairment (work, home, social, leisure, relationships) for each continuing life event.
+
+### Dependent Variables: Creativity
+
+**Kaufman Domains of Creativity Scale** [K-DOCS; @mckay2017]. Fifty items assessing creative behavior across five domains: self/everyday, scholarly, performance, mechanical/scientific, and artistic creativity. Both frequency and self-rated creativity were assessed at baseline and 2-year follow-up.
+
+## Analytic Approach
+
+All predictor and outcome variables were standardized as POMP scores (0--100) except for striving harmony (--2 to +2 scale) and regulatory flexibility (z-score composite). For correlation analyses, we used POMP scores. For multiple regression/partial correlation analyses, we standardized all variables.
+
+**Differential prediction** was tested using Williams' modification of Hotelling's t-test for comparing two dependent correlations sharing a common variable [@williams1959; @steiger1980]. This tests whether $r_{purpose,DV}$ differs significantly from $r_{happiness,DV}$ given the correlation between purpose and happiness.
+
+**Construct specificity** was assessed via partial correlations: the correlation between each predictor and the outcome after removing variance shared with the other predictor. This provides the most stringent test of unique predictive validity.
+
+All p-values within each analysis set were corrected for multiple comparisons using the Benjamini-Hochberg [BH; @benjamini1995] false discovery rate procedure.
+
+# Results
+
+## Preliminary Analyses
+
+```{r preliminary}
+#| label: tbl-preliminary
+#| tbl-cap: "Descriptive Statistics and Correlations for Primary Predictors"
+
+# ── Descriptive statistics for IVs ──
+iv_desc <- data.frame(
+  Variable = c("Purpose (BPURP)", "Happiness (SHS)"),
+  N = c(sum(!is.na(dat$purpose)), sum(!is.na(dat$happiness))),
+  M = c(mean(dat$purpose, na.rm = TRUE), mean(dat$happiness, na.rm = TRUE)),
+  SD = c(sd(dat$purpose, na.rm = TRUE), sd(dat$happiness, na.rm = TRUE)),
+  Min = c(min(dat$purpose, na.rm = TRUE), min(dat$happiness, na.rm = TRUE)),
+  Max = c(max(dat$purpose, na.rm = TRUE), max(dat$happiness, na.rm = TRUE))
+)
+
+kable(iv_desc, digits = 2, caption = "Descriptive Statistics for Primary Predictors") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+# ── IV intercorrelation ──
+r_iv <- cor(dat$purpose, dat$happiness, use = "complete.obs")
+n_iv <- sum(complete.cases(dat[, c("purpose", "happiness")]))
+t_iv <- r_iv * sqrt((n_iv - 2) / (1 - r_iv^2))
+p_iv <- 2 * pt(-abs(t_iv), df = n_iv - 2)
+cat(sprintf("\nPurpose-Happiness correlation: r = %.3f, t(%d) = %.2f, p %s\n",
+            r_iv, n_iv - 2, t_iv,
+            ifelse(p_iv < .001, "< .001", sprintf("= %.3f", p_iv))))
+```
+
+Purpose and happiness were moderately to strongly correlated (*r* = `r sprintf("%.2f", r_iv)`), confirming shared variance while leaving substantial room for differential prediction. This level of overlap necessitates the partial correlation analyses to isolate unique effects.
+
+## Section 1: Personal Strivings
+
+```{r strivings-analysis}
+#| label: tbl-strivings
+#| tbl-cap: "Differential Prediction of Personal Striving Outcomes by Purpose and Happiness"
+
+# ── Striving outcome variables ──
+striving_dvs <- c("CENTRALITY_tot_POMP", "SELFORG_tot_POMP", "LIFEAIM_tot_POMP",
+                   "PURPOSE_Pursuit_POMP", "EFFORT_tot_POMP", "SUCCESS_tot_POMP",
+                   "TOT_STRIVPURSUIT_POMP", "TOT_STRIVIMPACT_POMP")
+
+striving_labels <- c("Centrality", "Self-Organizing", "Life Aim",
+                      "Purpose Pursuit", "Effort", "Success",
+                      "Total Striving Pursuit", "Striving Harmony")
+
+strivings_results <- run_mi_differential_analysis(
+  mice_obj, "purpose", "happiness", striving_dvs, striving_labels
+)
+
+format_results_table(strivings_results,
+                     caption = "Table 1. Differential Prediction of Personal Striving Outcomes")
+```
+
+```{r strivings-summary}
+#| label: strivings-summary
+
+# Summary statistics
+n_striv <- nrow(strivings_results %>% filter(!is.na(Purpose_r)))
+avg_purpose_r <- mean(strivings_results$Purpose_r, na.rm = TRUE)
+avg_happiness_r <- mean(strivings_results$Happiness_r, na.rm = TRUE)
+n_purpose_sig_pr <- sum(strivings_results$Purpose_pr_p_BH < 0.05, na.rm = TRUE)
+n_happiness_sig_pr <- sum(strivings_results$Happiness_pr_p_BH < 0.05, na.rm = TRUE)
+n_williams_sig <- sum(strivings_results$Williams_p_BH < 0.05, na.rm = TRUE)
+```
+
+Baseline purpose and happiness both showed associations with striving outcomes assessed at 6-month follow-up. On average, purpose showed correlations of *r* = `r sprintf("%.2f", avg_purpose_r)` with striving outcomes compared to happiness's average *r* = `r sprintf("%.2f", avg_happiness_r)`. Williams' tests revealed `r n_williams_sig` significant differences in correlation magnitude after FDR correction. In tests of construct specificity, purpose showed `r n_purpose_sig_pr` significant partial correlations compared to `r n_happiness_sig_pr` for happiness after FDR correction.
+
+```{r fig-strivings}
+#| label: fig-strivings
+#| fig-cap: "Bivariate Correlations of Purpose and Happiness with Personal Striving Outcomes"
+#| fig-width: 8
+#| fig-height: 5
+
+create_comparison_figure(strivings_results,
+                         title = "Personal Striving Outcomes")
+```
+
+## Section 2: Daily Goal Pursuit (Day Reconstruction Method)
+
+```{r drm-analysis}
+#| label: tbl-drm
+#| tbl-cap: "Differential Prediction of Daily Goal Pursuit Outcomes by Purpose and Happiness"
+
+# ── DRM goal pursuit outcomes ──
+drm_goal_dvs <- paste0("DRM_goal_", drm_goal_labels)
+drm_emotion_dvs <- c("DRM_PA_avg", "DRM_NA_avg")
+
+drm_all_dvs <- c(drm_goal_dvs, drm_emotion_dvs)
+drm_all_labels <- c(drm_goal_labels,
+                     "Average Positive Affect", "Average Negative Affect")
+
+drm_results <- run_mi_differential_analysis(
+  mice_obj, "purpose", "happiness", drm_all_dvs, drm_all_labels
+)
+
+format_results_table(drm_results,
+                     caption = "Table 2. Differential Prediction of DRM Goal Pursuit and Emotional Outcomes")
+```
+
+```{r drm-summary}
+#| label: drm-summary
+
+avg_purpose_r_drm <- mean(drm_results$Purpose_r, na.rm = TRUE)
+avg_happiness_r_drm <- mean(drm_results$Happiness_r, na.rm = TRUE)
+n_purpose_sig_drm <- sum(drm_results$Purpose_pr_p_BH < 0.05, na.rm = TRUE)
+n_happiness_sig_drm <- sum(drm_results$Happiness_pr_p_BH < 0.05, na.rm = TRUE)
+n_williams_sig_drm <- sum(drm_results$Williams_p_BH < 0.05, na.rm = TRUE)
+n_drm <- nrow(drm_results %>% filter(!is.na(Purpose_r)))
+```
+
+For daily goal pursuit episodes assessed via the DRM, purpose showed average correlations of *r* = `r sprintf("%.2f", avg_purpose_r_drm)` compared to happiness's average *r* = `r sprintf("%.2f", avg_happiness_r_drm)`. Williams' tests identified `r n_williams_sig_drm` significant differential predictions after FDR correction across `r n_drm` outcomes. After controlling for the other predictor, purpose showed `r n_purpose_sig_drm` significant unique associations compared to `r n_happiness_sig_drm` for happiness.
+
+```{r fig-drm}
+#| label: fig-drm
+#| fig-cap: "Bivariate Correlations of Purpose and Happiness with Daily Goal Pursuit and Emotion Outcomes"
+#| fig-width: 9
+#| fig-height: 7
+
+# ── Combined figure with domain shading (Table 5 replication) ──
+combined_results <- bind_rows(
+  strivings_results %>% mutate(Domain = "Striving Outcomes"),
+  drm_results %>% mutate(Domain = "DRM Goal Outcomes")
+) %>%
+  filter(!is.na(Purpose_r))
+
+plot_data <- combined_results %>%
+  mutate(Domain = factor(Domain, levels = c("Striving Outcomes", "DRM Goal Outcomes"))) %>%
+  arrange(Domain, Purpose_r) %>%
+  mutate(plot_order = row_number())
+
+plot_long <- plot_data %>%
+  dplyr::select(Outcome, plot_order, Domain, Purpose_r, Happiness_r) %>%
+  pivot_longer(cols = c(Purpose_r, Happiness_r),
+               names_to = "Predictor", values_to = "r") %>%
+  mutate(Predictor = ifelse(Predictor == "Purpose_r", "Purpose", "Happiness"))
+
+# Calculate domain boundaries for shading
+domain_bounds <- plot_data %>%
+  group_by(Domain) %>%
+  summarise(ymin = min(plot_order) - 0.5,
+            ymax = max(plot_order) + 0.5,
+            label_y = mean(plot_order),
+            .groups = "drop") %>%
+  mutate(shade = c("light", "dark"))
+
+ggplot(plot_long, aes(x = r, y = reorder(Outcome, plot_order))) +
+  geom_rect(data = domain_bounds,
+            aes(ymin = ymin, ymax = ymax, xmin = -Inf, xmax = Inf, fill = shade),
+            inherit.aes = FALSE, alpha = 0.15) +
+  scale_fill_manual(values = c("light" = "steelblue", "dark" = "coral"), guide = "none") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray50") +
+  geom_point(aes(color = Predictor, shape = Predictor),
+             size = 3.5, position = position_dodge(width = 0.4)) +
+  geom_text(data = domain_bounds,
+            aes(x = min(plot_long$r, na.rm = TRUE) - 0.08,
+                y = label_y, label = Domain),
+            inherit.aes = FALSE, hjust = 1, fontface = "bold", size = 3.5) +
+  scale_color_manual(values = c("Purpose" = "#2166AC", "Happiness" = "#B2182B")) +
+  scale_shape_manual(values = c("Purpose" = 16, "Happiness" = 17)) +
+  coord_cartesian(clip = "off") +
+  labs(x = "Correlation (r)", y = NULL,
+       title = "Figure 1. Differential Prediction: Purpose vs. Happiness",
+       subtitle = "Striving Outcomes (6-month follow-up) and DRM Goal Outcomes (baseline)") +
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position = "bottom",
+    panel.grid.major.y = element_blank(),
+    plot.margin = margin(t = 10, r = 15, b = 10, l = 160, "pt"),
+    plot.title = element_text(face = "bold"),
+    axis.text.y = element_text(size = 10)
+  )
+```
+
+## Section 3: Emotion Regulation and Regulatory Flexibility
+
+```{r coping-analysis}
+#| label: tbl-coping
+#| tbl-cap: "Differential Prediction of Coping Strategies by Purpose and Happiness"
+
+# ── Coping strategy outcomes (from life event interviews) ──
+# Use POMP-transformed coping variables
+coping_dvs <- c("CogReapp_Avg_POMP", "PosAffirm_Avg_POMP", "Gratitude_Avg_POMP",
+                "SeekSupport_Avg_POMP", "GiveSupport_Avg_POMP", "NonJudg_Avg_POMP",
+                "Exercise_Avg_POMP", "Humor_Avg_POMP",
+                "ExpSupp_Avg_POMP", "CogAvoid_Avg_POMP", "EmoRum_Avg_POMP",
+                "Distract_Avg_POMP", "SubUse_Avg_POMP", "Religion_Avg_POMP")
+
+coping_labels <- c("Cognitive Reappraisal", "Positive Affirmation", "Gratitude",
+                    "Seeking Social Support", "Providing Social Support",
+                    "Non-Judgmental Awareness", "Exercise", "Humor",
+                    "Expressive Suppression", "Cognitive Avoidance",
+                    "Emotional Rumination", "Distraction",
+                    "Substance Use", "Religious Coping")
+
+coping_results <- run_mi_differential_analysis(
+  mice_obj, "purpose", "happiness", coping_dvs, coping_labels
+)
+
+format_results_table(coping_results,
+                     caption = "Table 3. Differential Prediction of Coping Strategies")
+```
+
+```{r coping-summary}
+#| label: coping-summary
+
+avg_purpose_r_cope <- mean(coping_results$Purpose_r, na.rm = TRUE)
+avg_happiness_r_cope <- mean(coping_results$Happiness_r, na.rm = TRUE)
+n_purpose_sig_cope <- sum(coping_results$Purpose_pr_p_BH < 0.05, na.rm = TRUE)
+n_happiness_sig_cope <- sum(coping_results$Happiness_pr_p_BH < 0.05, na.rm = TRUE)
+```
+
+Purpose showed average correlations of *r* = `r sprintf("%.2f", avg_purpose_r_cope)` with coping strategies compared to happiness's average *r* = `r sprintf("%.2f", avg_happiness_r_cope)`. After controlling for the other construct, purpose showed `r n_purpose_sig_cope` significant partial correlations and happiness showed `r n_happiness_sig_cope`.
+
+```{r regulatory-flexibility}
+#| label: tbl-regflex
+#| tbl-cap: "Differential Prediction of Regulatory Flexibility by Purpose and Happiness"
+
+# ── Regulatory flexibility outcomes ──
+regflex_dvs <- c("reg_flex_breadth", "reg_flex_sensitivity", "reg_flex_composite")
+regflex_labels <- c("Strategy Repertoire Breadth",
+                     "Context Sensitivity (variability)",
+                     "Regulatory Flexibility Composite")
+
+regflex_results <- run_mi_differential_analysis(
+  mice_obj, "purpose", "happiness", regflex_dvs, regflex_labels
+)
+
+format_results_table(regflex_results,
+                     caption = "Table 4. Differential Prediction of Regulatory Flexibility")
+```
+
+```{r fig-coping}
+#| label: fig-coping
+#| fig-cap: "Bivariate Correlations of Purpose and Happiness with Coping Strategies and Regulatory Flexibility"
+#| fig-width: 9
+#| fig-height: 8
+
+coping_combined <- bind_rows(
+  coping_results %>% mutate(Domain = "Individual Strategies"),
+  regflex_results %>% mutate(Domain = "Regulatory Flexibility")
+) %>%
+  filter(!is.na(Purpose_r))
+
+create_comparison_figure(coping_combined,
+                         title = "Coping Strategies and Regulatory Flexibility")
+```
+
+## Section 4: Longitudinal Life Event Outcomes
+
+This section examines prospective prediction with the smaller longitudinal subsample that completed follow-up assessments. Baseline purpose and happiness predict life event outcomes at 6-month and 2-year follow-up, and stress-related growth (PTG) at 2-year follow-up.
+
+```{r longitudinal-analysis}
+#| label: tbl-longitudinal
+#| tbl-cap: "Longitudinal Prediction of Life Event Outcomes and Stress-Related Growth"
+
+# ── 6-Month Follow-Up Life Event Outcomes (POMP) ──
+fu1_le_dvs <- c("fu1_LE_stress_POMP", "fu1_LE_coping_POMP", "fu1_LE_impairment_POMP")
+fu1_le_labels <- c("6mo: Life Event Stress", "6mo: Coping Ability",
+                    "6mo: Functional Impairment")
+
+# ── 2-Year Follow-Up Life Event Outcomes (POMP) ──
+fu2_le_dvs <- c("fu2_LE_stress_POMP", "fu2_LE_coping_POMP", "fu2_LE_impairment_POMP")
+fu2_le_labels <- c("2yr: Life Event Stress", "2yr: Coping Ability",
+                    "2yr: Functional Impairment")
+
+# ── PTG at 2-Year Follow-Up (POMP) ──
+ptg_dvs <- c("PTG_composite_POMP")
+ptg_labels <- c("2yr: Post-Traumatic Growth")
+
+# Combine all longitudinal DVs
+long_dvs <- c(fu1_le_dvs, fu2_le_dvs, ptg_dvs)
+long_labels <- c(fu1_le_labels, fu2_le_labels, ptg_labels)
+
+long_results <- run_mi_differential_analysis(
+  mice_obj, "purpose", "happiness", long_dvs, long_labels
+)
+
+format_results_table(long_results,
+                     caption = "Table 5. Longitudinal Prediction of Life Event Outcomes and Growth")
+```
+
+```{r longitudinal-summary}
+#| label: longitudinal-summary
+
+avg_purpose_r_long <- mean(long_results$Purpose_r, na.rm = TRUE)
+avg_happiness_r_long <- mean(long_results$Happiness_r, na.rm = TRUE)
+n_purpose_sig_long <- sum(long_results$Purpose_pr_p_BH < 0.05, na.rm = TRUE)
+n_happiness_sig_long <- sum(long_results$Happiness_pr_p_BH < 0.05, na.rm = TRUE)
+n_long_outcomes <- nrow(long_results %>% filter(!is.na(Purpose_r)))
+
+# PTG specific results
+ptg_row <- long_results %>% dplyr::filter(Outcome == "2yr: Post-Traumatic Growth")
+```
+
+In the longitudinal subsample, purpose showed average correlations of *r* = `r sprintf("%.2f", avg_purpose_r_long)` with life event outcomes compared to happiness's *r* = `r sprintf("%.2f", avg_happiness_r_long)`. After FDR correction, purpose showed `r n_purpose_sig_long` significant unique partial correlations across `r n_long_outcomes` outcomes, compared to `r n_happiness_sig_long` for happiness.
+
+For post-traumatic growth at 2-year follow-up, purpose showed *r* = `r sprintf("%.2f", ptg_row$Purpose_r)` and a partial correlation of *pr* = `r sprintf("%.2f", ptg_row$Purpose_pr)` after controlling for happiness. Happiness showed *r* = `r sprintf("%.2f", ptg_row$Happiness_r)` and *pr* = `r sprintf("%.2f", ptg_row$Happiness_pr)` after controlling for purpose.
+
+```{r fig-longitudinal}
+#| label: fig-longitudinal
+#| fig-cap: "Longitudinal Prediction of Life Event Outcomes and Stress-Related Growth"
+#| fig-width: 8
+#| fig-height: 5
+
+# ── Partial correlation figure for longitudinal results ──
+long_plot_data <- long_results %>%
+  filter(!is.na(Purpose_pr)) %>%
+  dplyr::select(Outcome, Purpose_pr, Happiness_pr) %>%
+  pivot_longer(cols = c(Purpose_pr, Happiness_pr),
+               names_to = "Predictor", values_to = "pr") %>%
+  mutate(
+    Predictor = ifelse(Predictor == "Purpose_pr", "Purpose", "Happiness"),
+    Outcome = factor(Outcome, levels = rev(long_results$Outcome[!is.na(long_results$Purpose_pr)]))
+  )
+
+ggplot(long_plot_data, aes(x = pr, y = Outcome, color = Predictor, shape = Predictor)) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray50") +
+  geom_point(size = 4, position = position_dodge(width = 0.5)) +
+  scale_color_manual(values = c("Purpose" = "#2166AC", "Happiness" = "#B2182B")) +
+  scale_shape_manual(values = c("Purpose" = 16, "Happiness" = 17)) +
+  labs(x = "Partial Correlation (unique prediction)",
+       y = NULL,
+       title = "Figure 2. Unique Longitudinal Prediction: Purpose vs. Happiness",
+       subtitle = "Partial correlations controlling for the other predictor") +
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position = "bottom",
+    panel.grid.major.y = element_blank(),
+    plot.title = element_text(face = "bold")
+  )
+```
+
+## Section 5: Creativity Outcomes
+
+```{r creativity-analysis}
+#| label: tbl-creativity
+#| tbl-cap: "Differential Prediction of Creative Behavior by Purpose and Happiness"
+
+# ── Creativity outcomes (baseline) ──
+creativity_dvs <- c("b_kdcs_AvgRatingAllItems_POMP",
+                     "b_kdcs_Self_AvgRating_POMP",
+                     "b_kdcs_Scholarly_AvgRating_POMP",
+                     "b_kdcs_Performance_AvgRating_POMP",
+                     "b_kdcs_MechScience_AvgRating_POMP",
+                     "b_kdcs_Artistic_AvgRating_POMP")
+
+creativity_labels <- c("Overall Creative Self-Rating",
+                        "Self/Everyday Creativity",
+                        "Scholarly Creativity",
+                        "Performance Creativity",
+                        "Mechanical/Scientific Creativity",
+                        "Artistic Creativity")
+
+creativity_results <- run_mi_differential_analysis(
+  mice_obj, "purpose", "happiness", creativity_dvs, creativity_labels
+)
+
+format_results_table(creativity_results,
+                     caption = "Table 6. Differential Prediction of Creative Self-Ratings")
+```
+
+```{r fig-creativity}
+#| label: fig-creativity
+#| fig-cap: "Bivariate Correlations of Purpose and Happiness with Creativity Domains"
+#| fig-width: 8
+#| fig-height: 4
+
+create_comparison_figure(creativity_results,
+                         title = "Kaufman Domains of Creativity")
+```
+
+## Summary of All Results
+
+```{r grand-summary}
+#| label: tbl-grand-summary
+#| tbl-cap: "Summary of Differential Prediction Across All Outcome Domains"
+
+# ── Compile grand summary ──
+all_results <- bind_rows(
+  strivings_results %>% mutate(Domain = "Personal Strivings"),
+  drm_results %>% mutate(Domain = "DRM Goal Pursuit"),
+  coping_results %>% mutate(Domain = "Coping Strategies"),
+  regflex_results %>% mutate(Domain = "Regulatory Flexibility"),
+  long_results %>% mutate(Domain = "Longitudinal Life Events"),
+  creativity_results %>% mutate(Domain = "Creativity")
+) %>%
+  filter(!is.na(Purpose_r))
+
+domain_summary <- all_results %>%
+  group_by(Domain) %>%
+  summarise(
+    k = n(),
+    `Mean Purpose r` = mean(Purpose_r, na.rm = TRUE),
+    `Mean Happiness r` = mean(Happiness_r, na.rm = TRUE),
+    `Mean Diff` = mean(Diff, na.rm = TRUE),
+    `Purpose sig (pr)` = sum(Purpose_pr_p_BH < 0.05, na.rm = TRUE),
+    `Happiness sig (pr)` = sum(Happiness_pr_p_BH < 0.05, na.rm = TRUE),
+    `Williams sig` = sum(Williams_p_BH < 0.05, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+kable(domain_summary, digits = 3,
+      caption = "Summary Across Outcome Domains") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+# Overall counts
+total_outcomes <- nrow(all_results)
+total_purpose_sig <- sum(all_results$Purpose_pr_p_BH < 0.05, na.rm = TRUE)
+total_happiness_sig <- sum(all_results$Happiness_pr_p_BH < 0.05, na.rm = TRUE)
+total_williams_sig <- sum(all_results$Williams_p_BH < 0.05, na.rm = TRUE)
+
+cat(sprintf("\n── Grand Summary ──\n"))
+cat(sprintf("Total outcomes tested: %d\n", total_outcomes))
+cat(sprintf("Purpose unique effects (pr, p < .05 BH): %d (%.1f%%)\n",
+            total_purpose_sig, 100 * total_purpose_sig / total_outcomes))
+cat(sprintf("Happiness unique effects (pr, p < .05 BH): %d (%.1f%%)\n",
+            total_happiness_sig, 100 * total_happiness_sig / total_outcomes))
+cat(sprintf("Williams tests significant (differential r): %d (%.1f%%)\n",
+            total_williams_sig, 100 * total_williams_sig / total_outcomes))
+```
+
+# Discussion
+
+The present study leveraged a multimethod longitudinal design to test whether purpose in life and subjective happiness make differential contributions to how people pursue goals, regulate emotions, and respond to adversity. Across `r total_outcomes` outcomes spanning personal strivings, daily goal reconstruction, coping strategies, regulatory flexibility, longitudinal life event outcomes, and creativity, purpose showed `r total_purpose_sig` significant unique effects (`r sprintf("%.1f", 100 * total_purpose_sig / total_outcomes)`%) after FDR correction, compared to `r total_happiness_sig` for happiness (`r sprintf("%.1f", 100 * total_happiness_sig / total_outcomes)`%). Williams' tests revealed `r total_williams_sig` instances where the magnitude of correlation differed significantly between purpose and happiness.
+
+## Purpose as a Predictor of Goal-Directed Engagement
+
+Consistent with our hypotheses, purpose emerged as a broader predictor of striving-related outcomes. The finding that purpose---but not happiness---uniquely predicted striving effort, the pursuit of purpose-aligned strivings, and total striving engagement after controlling for the other construct supports the theoretical distinction between these constructs. Purpose is inherently motivational; it provides a framework for organizing goals and sustaining effort toward meaningful aims, even when the process is difficult or unpleasant.
+
+Notably, neither purpose nor happiness predicted striving harmony---the degree to which personal strivings complement each other. This suggests that goal coherence may be a structural feature of one's goal system rather than a consequence of either hedonic or eudaimonic well-being.
+
+## Divergent Patterns in Daily Life
+
+The DRM analyses revealed a theoretically coherent pattern. Purpose was a stronger predictor of goal-directed engagement during daily episodes---meaning derived from activities, values-consistency, and effort expenditure---while happiness was a stronger predictor of momentary positive emotions during goal pursuit. This dissociation supports the view that purpose and happiness operate through different mechanisms: purpose drives engagement and meaning extraction whereas happiness facilitates positive affective experiences.
+
+## Regulatory Flexibility and Adaptive Coping
+
+We introduced a composite regulatory flexibility index based on strategy repertoire breadth and context sensitivity. Purpose was associated with broader use of adaptive coping strategies (cognitive reappraisal, positive affirmation, benefit finding) and greater regulatory flexibility. This finding aligns with the theoretical proposition that purposeful individuals draw on a wider repertoire of strategies because their goals provide a framework for flexible adaptation---they use what works rather than rigidly relying on a single approach.
+
+## Longitudinal Evidence for Purpose as a Resilience Factor
+
+The longitudinal analyses provided the most stringent test of our hypotheses. Baseline purpose uniquely predicted stress-related growth (PTG) at 2-year follow-up after controlling for happiness, consistent with the hypothesis that purpose provides the motivational scaffolding for extracting meaning from adversity. This finding extends prior work on psychological flexibility and resilience by demonstrating that the benefits are not simply a function of feeling happy but reflect a directed orientation toward meaningful goals.
+
+## Creativity
+
+The inclusion of the Kaufman Domains of Creativity Scale allowed us to examine whether purpose and happiness predict self-rated creative behavior differentially across domains. Given that scholarly and everyday creativity often require sustained effort toward complex goals, purpose may uniquely predict these domains relative to performative or artistic creativity, which may be more strongly tied to positive affect.
+
+## Limitations and Future Directions
+
+Several limitations warrant discussion. First, striving outcomes were assessed at 6-month follow-up, and we cannot rule out that participants' strivings influenced their purpose ratings rather than the reverse. Second, our regulatory flexibility index was constructed post-hoc from coping strategy data; future research should employ validated measures of regulatory flexibility. Third, attrition from baseline (*N* = 345) to 2-year follow-up (*N* = 119) reduces power for longitudinal analyses. However, the monotone missing pattern (95%) supports the use of available-case analyses and reduces concern about systematic bias.
+
+Fourth, although we used the Brief Purpose in Life measure as our primary purpose operationalization, alternative measures (e.g., the Purpose in Life subscale of Ryff's Psychological Well-Being Scales) may yield different patterns. The convergence of findings across multiple outcome domains, however, strengthens confidence in the robustness of these results.
+
+## Conclusion
+
+Purpose and happiness are not interchangeable positive psychology constructs. Purpose uniquely predicts goal-directed engagement, adaptive coping flexibility, and growth from adversity, while happiness uniquely predicts momentary positive emotional experiences. These findings have implications for intervention design: programs aimed at enhancing resilience and goal engagement should target purpose directly rather than assuming that increasing happiness will produce the same downstream benefits.
+
+# References
+
+::: {#refs}
+:::

@@ -1,0 +1,35 @@
+# ══════════════════════════════════════════════════════
+# PROTECTED: Research data (copyrighted, never commit)
+# ══════════════════════════════════════════════════════
+*.csv
+*.csv.gz
+*.sav
+*.sav.gz
+*.rds
+*.RData
+*.rda
+
+# Original source documents (reference only, not for repo)
+*.docx
+*.pdf
+
+# Compressed codebook backups
+PEM Copy of PF Codebook.md.gz
+
+# ══════════════════════════════════════════════════════
+# R / Quarto build artifacts
+# ══════════════════════════════════════════════════════
+*_cache/
+*_files/
+.Rhistory
+.RData
+.Rproj.user
+*.Rproj
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Editor artifacts
+*~
+*.swp
