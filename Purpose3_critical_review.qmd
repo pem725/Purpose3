@@ -1,0 +1,337 @@
+---
+title: "Critical Review: Theory-Driven vs. Empirically-Driven Approaches to Differentiating Purpose and Happiness"
+shorttitle: "Purpose3 Critical Review"
+author:
+  - name: Claude (AI Research Assistant)
+    note: "Generated for review by Kashdan, T. B. & McKnight, P. E."
+abstract: This document provides a side-by-side critical comparison of two parallel manuscripts examining whether purpose in life and subjective happiness differentially predict striving, coping, growth, and daily goal outcomes. The "Purpose3" manuscript uses theory-driven observed-variable analyses (MI-pooled partial correlations with Williams' t-tests), while "Purpose3wildchild" uses empirically-driven latent-variable models (CFA, SEM, network analysis, latent profile analysis). We evaluate the merits, limitations, and complementary value of each approach, and assess whether this dual-track workflow is viable for future research.
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    theme: cosmo
+    embed-resources: true
+    self-contained-math: true
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+# Overview
+
+```{r setup}
+#| cache: false
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+```
+
+## The Two Manuscripts
+
+| Feature | **Purpose3** (Theory-Driven) | **Purpose3wildchild** (Empirically-Driven) |
+|---------|------------------------------|-------------------------------------------|
+| **IVs** | Observed POMP means (0-100) | Latent factors from CFA (4 items each) |
+| **DVs** | Observed POMP composites | Mix of latent factors (well-being) and observed (strivings, DRM) |
+| **Missing data** | MICE (20 imps, PMM, Rubin's rules) | FIML (Full Information Maximum Likelihood) |
+| **Construct specificity** | Williams' t-test + partial correlations | SEM path comparison + Wald test (diff := b_p - b_h) |
+| **Multiplicity correction** | Benjamini-Hochberg FDR | Benjamini-Hochberg FDR |
+| **Exploratory elements** | None (purely confirmatory) | Network analysis, LPA, personality moderation, bifactor |
+| **Longitudinal** | MI-pooled cross-lag partial correlations | Latent growth curve models |
+| **Complexity** | Low (correlations, partial correlations) | High (SEM, CFA, LGM, network, LPA) |
+| **Interpretability** | High — every number is a familiar statistic | Moderate — requires SEM literacy |
+
+# Detailed Comparison
+
+## 1. How They Handle Measurement
+
+### Purpose3: POMP Composites
+
+**Approach**: Average items into composite scores, transform to 0-100 POMP scale, use these observed means as variables.
+
+**Strengths**:
+
+- Transparent and reproducible — anyone can compute a mean
+- POMP scoring makes effect sizes directly comparable across measures with different response scales
+- No assumptions about factor structure
+- Works with any sample size
+
+**Limitations**:
+
+- Treats composites as error-free, which they are not. Measurement error in observed composites **attenuates** correlations toward zero. If purpose and happiness composites have different reliabilities, comparisons of their correlations are biased
+- Cannot separate true score variance from error variance
+- Cannot test whether the assumed factor structure holds
+
+### Purpose3wildchild: CFA + Latent Variables
+
+**Approach**: Fit confirmatory factor analysis to items, use latent factor scores (with measurement error modeled explicitly) in structural models.
+
+**Strengths**:
+
+- Corrects for attenuation due to measurement error → **disattenuated** correlations are closer to "true" relationships
+- Formally tests whether purpose and happiness are distinct constructs (2-factor vs 1-factor comparison)
+- The latent correlation between purpose and happiness is the gold standard for discriminant validity
+- Can reveal item-level problems (cross-loadings, low-loading items)
+
+**Limitations**:
+
+- Requires adequate sample size for stable estimation (N = 345 is marginal for complex models)
+- CFA fit indices can be misleading with small item sets (4 items → 2 df → limited fit information)
+- Bifactor models often don't converge with ≤4 items per group (as happened here)
+- Assumes a specific factor structure — if wrong, results are biased in the other direction
+- Latent variables are abstractions; they may not map onto what practitioners and readers understand as "purpose" and "happiness"
+
+### Verdict
+
+The two approaches are **complementary, not competing**. The POMP approach is conservative (attenuated effects) but assumption-light. The CFA approach yields more precise estimates but depends on model specification. If both tell a similar story, the finding is robust.
+
+## 2. How They Test Differential Prediction
+
+### Purpose3: Williams' t-test + Partial Correlations
+
+**Approach**:
+
+1. Compute bivariate r(purpose, DV) and r(happiness, DV)
+2. Use Williams' t-test to compare dependent correlations
+3. Compute partial correlations: r(purpose, DV | happiness) and r(happiness, DV | purpose)
+4. Pool across 20 MICE imputations via Fisher-z Rubin's rules
+
+**Strengths**:
+
+- Williams' test is the correct statistical test for comparing dependent correlations
+- Partial correlations directly answer "what does purpose predict beyond happiness?"
+- MI pooling handles missing data properly with variance propagation
+- FDR correction across all tests in each domain
+
+**Limitations**:
+
+- Observed-variable partial correlations don't account for measurement error
+- With unreliable composites, partialing out happiness may not fully remove the happiness variance → residual confounding
+- Williams' test assumes bivariate normality
+
+### Purpose3wildchild: SEM Path Comparison + Wald Test
+
+**Approach**:
+
+1. Fit SEM with latent purpose + latent happiness → latent or observed DV
+2. Extract standardized path coefficients (β_purpose and β_happiness)
+3. Define constraint `diff := b_p - b_h` and test whether diff ≠ 0
+4. FDR correction across outcomes
+
+**Strengths**:
+
+- Path coefficients from latent IVs are disattenuated — they estimate the relationship between the *true* constructs
+- Wald test for coefficient equality is the SEM analog of Williams' test
+- FIML handles missing data within the model (no separate imputation step)
+- Can incorporate complex DV measurement models
+
+**Limitations**:
+
+- Model-dependent — misspecified measurement model propagates to structural paths
+- FIML assumes MAR (same as MICE, but harder to diagnose)
+- Standardized paths can be unstable with small latent-variable item sets
+- More degrees of freedom consumed → less statistical power per comparison
+
+### Verdict
+
+If purpose is a stronger predictor in **both** approaches, the evidence is strong. The observed-variable approach is conservative (biased toward the null); the latent-variable approach is less biased but model-dependent. Agreement between them is powerful.
+
+## 3. How They Handle Exploration
+
+### Purpose3: None
+
+The original manuscript is purely confirmatory. Every analysis tests a pre-specified hypothesis. This is a strength for publication credibility but misses opportunities.
+
+### Purpose3wildchild: Multiple Exploratory Approaches
+
+**Network Analysis**: Reveals the partial correlation structure among all variables simultaneously. Key output: which nodes are most central (most connected to everything else)?
+
+- If **purpose** is more central than **happiness**, it suggests purpose is a more fundamental node in the psychological network
+- If a specific edge (e.g., purpose → striving effort) is much stronger than the parallel happiness edge, that's convergent evidence
+- Limitation: cross-sectional networks don't imply causation
+
+**Latent Profile Analysis**: Identifies subgroups defined by purpose-happiness combinations. Could reveal:
+
+- A "high purpose / low happiness" group that shows strong striving but low affect
+- A "high both" group that is broadly thriving
+- A "discordant" group where the constructs truly diverge
+- Limitation: profile solutions are sample-specific and may not replicate
+
+**Personality Moderation**: Tests whether the purpose-happiness distinction depends on Big Five traits. If conscientiousness moderates the effect (purpose matters more for conscientious people), that supports the theoretical claim that purpose operates through goal-directed mechanisms.
+
+### Verdict
+
+The exploratory analyses add value precisely because they are not hypothesis-driven. They can generate new hypotheses and reveal patterns that confirmatory tests would miss. But they must be presented honestly as exploratory and not over-interpreted.
+
+## 4. How They Handle Longitudinal Questions
+
+### Purpose3: MI-Pooled Cross-Lag Partial Correlations
+
+**Approach**: Baseline purpose/happiness → follow-up outcomes, controlling for the other IV. Pooled across 20 MICE imputations.
+
+**Strengths**:
+
+- Simple, interpretable: "Does T1 purpose predict T2 life satisfaction beyond T1 happiness?"
+- MI handles the severe attrition (N = 119 at T3)
+- FDR-corrected
+
+**Limitations**:
+
+- Doesn't model *change* explicitly — just T1 → T2 prediction
+- Doesn't account for autocorrelation (T1 DV predicting T2 DV)
+- Not a true growth model
+
+### Purpose3wildchild: Latent Growth Curve Models
+
+**Approach**: Model intercept and slope of outcomes over 3 waves. Test whether baseline purpose/happiness predict the slope (rate of change).
+
+**Strengths**:
+
+- Explicitly models *change trajectories* — "Does purpose predict whether life satisfaction goes up or down over 2 years?"
+- Separates level (intercept) from change (slope)
+- FIML uses all available data efficiently
+
+**Limitations**:
+
+- 3 timepoints is the minimum for growth models (no quadratic term, limited shape detection)
+- Linear slope assumption may not hold
+- Severe attrition (345 → 200 → 119) makes slope estimates uncertain
+- Growth models need larger N than cross-lag correlations for stable estimation
+
+### Verdict
+
+The growth models ask a genuinely different question (predicting *change* vs. predicting *level*). If purpose predicts steeper positive slopes, that's a stronger longitudinal finding than a simple cross-lag correlation. But with only 3 waves and heavy attrition, the growth model estimates may be imprecise.
+
+## 5. Summary Comparison Table
+
+```{r comparison-table}
+
+comparison <- tibble(
+  Dimension = c(
+    "Primary question",
+    "Statistical framework",
+    "Measurement error",
+    "Missing data",
+    "Multiplicity correction",
+    "Sample size requirements",
+    "Interpretability",
+    "Reviewer familiarity",
+    "Exploratory potential",
+    "Longitudinal modeling",
+    "Risk of misspecification",
+    "Conservative vs. liberal",
+    "Replicability"
+  ),
+  `Purpose3 (Theory-Driven)` = c(
+    "Same: Does purpose predict X better than happiness?",
+    "Correlations, partial correlations, Williams' t",
+    "Ignored (attenuated estimates)",
+    "MICE + Rubin's rules (20 imps)",
+    "BH-FDR within each domain",
+    "Lower — works with N = 100+",
+    "High — familiar statistics",
+    "High — most reviewers know correlations",
+    "None — purely confirmatory",
+    "Cross-lag partial correlations",
+    "Low — few assumptions",
+    "Conservative (biased toward null)",
+    "High — simple methods replicate well"
+  ),
+  `Purpose3wildchild (Empirically-Driven)` = c(
+    "Same question, different tools",
+    "CFA, SEM, LGM, network, LPA",
+    "Modeled explicitly (disattenuation)",
+    "FIML within lavaan",
+    "BH-FDR within each domain",
+    "Higher — SEM needs N > 200 minimum",
+    "Moderate — requires SEM literacy",
+    "Lower — reviewers may question specifications",
+    "High — network, LPA, moderation",
+    "Latent growth curves (intercept + slope)",
+    "Higher — model-dependent",
+    "Liberal (may inflate if model wrong)",
+    "Lower — complex models are harder to replicate"
+  )
+)
+
+kable(comparison,
+      caption = "Side-by-Side Comparison of the Two Analytic Approaches") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = TRUE) %>%
+  column_spec(1, bold = TRUE, width = "20%") %>%
+  column_spec(2, width = "40%") %>%
+  column_spec(3, width = "40%")
+```
+
+# Recommendations
+
+## For This Paper
+
+1. **Lead with the theory-driven version** (Purpose3). It is simpler, more conservative, and directly tied to the hypotheses. Reviewers will find it transparent.
+
+2. **Include the wildchild as supplementary material** or a companion document. Frame it as: "We verified our findings using latent-variable models that correct for measurement error. Results converge/diverge in the following ways..."
+
+3. **Report convergence explicitly**: Where both approaches agree (e.g., purpose is a stronger predictor of striving effort), the finding is robust. Where they disagree, investigate why — the answer is usually measurement error or model specification.
+
+4. **Use the network analysis selectively**: The network plot is visually compelling and could appear in the main manuscript as a "systems perspective" complement to the hypothesis tests. It adds value without requiring full SEM machinery.
+
+5. **The LPA is risky** for the main paper but could generate hypotheses for future work. If there are clearly distinct purpose-happiness profiles with different outcome patterns, that's a paper in itself.
+
+## For the Dual-Track Workflow
+
+**Assessment**: This workflow has strong potential for future papers. Here's why:
+
+**Benefits of running theory-driven and empirically-driven analyses in parallel**:
+
+1. **Robustness checking**: If both approaches tell the same story, you have much stronger evidence than either alone
+2. **Discovery**: The exploratory version can reveal patterns you didn't hypothesize
+3. **Reviewer anticipation**: You can address likely reviewer concerns ("Did you check measurement quality?", "What about latent variables?") before they arise
+4. **Flexibility**: Some journals want simple analyses; others want SEM. You have both ready
+5. **Intellectual honesty**: Running both forces you to confront discrepancies rather than cherry-picking the approach that gives better results
+
+**Costs**:
+
+1. **Time**: Generating two complete analyses takes roughly 2x the effort
+2. **Complexity management**: Must ensure both versions use the same data, transformations, and inclusion criteria
+3. **Narrative coherence**: Presenting two sets of results can confuse readers if not framed carefully
+4. **Overfitting risk**: The more models you run, the more likely you find something by chance — the exploratory version needs honest framing
+
+**Bottom line**: The dual-track workflow is worth adopting if you commit to:
+
+- Always leading with the theory-driven version
+- Framing the exploratory version as robustness/discovery
+- Reporting discrepancies honestly
+- Not switching your lead version based on which gives "better" results
+
+## For Future Papers
+
+Specific papers where this workflow would add value:
+
+1. **Any construct comparison paper**: "Does X predict Y better than Z?" — the Williams' t-test + SEM path comparison combo is powerful
+2. **Longitudinal studies**: Cross-lag correlations + latent growth models ask complementary questions
+3. **Multi-measure studies**: When you have item-level data for multiple scales, the CFA → SEM pipeline adds measurement rigor
+4. **Papers with strong hypotheses**: The theory-driven version tests them; the exploratory version stress-tests them
+
+Papers where this workflow is overkill:
+
+1. **Simple descriptive studies**: One DV, one IV, no comparison
+2. **Very small N** (< 150): SEM will be unreliable
+3. **Papers where measurement is not in question**: If you're using a single well-validated measure, CFA adds little
+
+# Appendix: What Each Version Reveals That the Other Misses
+
+## What Purpose3 shows that the Wildchild cannot
+
+1. **Individual coping strategy effects**: The wildchild doesn't run separate models for each of the 14 coping strategies. The original does, revealing *which specific strategies* are differentially predicted
+2. **Regulatory flexibility composite**: The z-scored breadth+sensitivity composite is a bespoke measure that doesn't fit neatly into a latent variable framework
+3. **MICE diagnostics**: The original shows convergence checks, distributional comparisons, and logged events — important for transparency
+4. **Full Williams' test decomposition**: The direct comparison of r_purpose vs r_happiness before partialing provides a different perspective than SEM paths
+
+## What the Wildchild shows that Purpose3 cannot
+
+1. **Latent discriminant validity**: The 2-factor vs 1-factor CFA comparison is the gold standard for showing purpose ≠ happiness at the construct level
+2. **Disattenuated effects**: SEM paths correct for measurement error — if the story changes, measurement error was misleading the observed-variable analysis
+3. **Growth trajectories**: Latent growth models explicitly test whether purpose predicts *change over time*, not just cross-sectional level
+4. **Network centrality**: Which construct is most "connected" to everything else — a systems perspective unavailable from pairwise correlations
+5. **Latent profiles**: Whether there are meaningful subgroups defined by purpose-happiness combinations — an entirely different kind of question
+
+# References
