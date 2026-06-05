@@ -496,22 +496,44 @@ if (nrow(sem_table) > 0) {
   sem_table$`p (FDR)` <- p.adjust(sem_table$`p (diff)`, method = "BH")
   sem_table$Sig <- ifelse(sem_table$`p (FDR)` < .05, "*", "")
 
+  # ── Valence coding ──
+  # Depression and anxiety are negatively valenced (higher = worse), and BOTH
+  # constructs load negatively on them. A raw mean of betas, or the raw sign of
+  # (b_p - b_h), then treats the *less protective* construct as "stronger." We
+  # flip the sign on these outcomes so that throughout, higher = better and a
+  # positive valenced diff means purpose is the stronger *beneficial* path.
+  neg_latent <- c("depression", "anx_cog", "anx_som")
+  flip <- ifelse(sem_table$Outcome %in% neg_latent, -1, 1)
+  sem_table$`βv Purpose`   <- sem_table$`β Purpose`   * flip
+  sem_table$`βv Happiness` <- sem_table$`β Happiness` * flip
+  sem_table$`Valenced diff (P-H)` <- sem_table$`βv Purpose` - sem_table$`βv Happiness`
+
   cat("\n── SEM Path Comparison: Latent Purpose vs Latent Happiness ──\n")
-  kable(sem_table, digits = 3,
-        caption = "Standardized SEM paths from latent purpose and latent happiness to latent outcomes. Diff = purpose path minus happiness path.") %>%
+  kable(sem_table %>% dplyr::select(Outcome, `β Purpose`, `β Happiness`,
+          `Valenced diff (P-H)`, `p (diff)`, `p (FDR)`, Sig, CFI, RMSEA),
+        digits = 3,
+        caption = "Standardized SEM paths from latent purpose and latent happiness. Valenced diff sign-corrects the negatively-valenced outcomes (depression, anxiety) so that positive = purpose the stronger beneficial path.") %>%
     kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE) %>%
-    footnote(general = "* p < .05 (BH FDR-corrected). Positive diff = purpose stronger. FIML estimation with MLR.")
+    footnote(general = "* p < .05 (BH FDR-corrected), testing equality of the two paths. Valenced diff > 0 = purpose the stronger beneficial predictor; depression and anxiety are sign-flipped (higher = better mental health). FIML with MLR.")
 }
 
-# ── Summary statistics ──
+# ── Summary statistics (valence-corrected) ──
+# These pooled numbers are a rough summary, not a verdict: the nine outcomes are
+# conceptually distinct and differently valenced (autonomy vs. depression), so a
+# single averaged path is not interpretable on its own. Read the per-outcome
+# paths above. The pattern there is context-specific, not a clean win for either
+# construct: purpose paths are larger for agentic outcomes (hope, autonomy,
+# competence), happiness paths for affective and distress outcomes (life
+# satisfaction, relatedness, depression, anxiety).
 if (nrow(sem_table) > 0) {
-  cat("\n── Summary ──\n")
-  cat("Average β for purpose:", round(mean(sem_table$`β Purpose`, na.rm = TRUE), 3), "\n")
-  cat("Average β for happiness:", round(mean(sem_table$`β Happiness`, na.rm = TRUE), 3), "\n")
-  n_purpose_stronger <- sum(sem_table$`Diff (P - H)` > 0, na.rm = TRUE)
-  cat("Purpose stronger in", n_purpose_stronger, "of", nrow(sem_table), "outcomes\n")
+  cat("\n── Summary (valence-corrected; read per-outcome, not as a verdict) ──\n")
+  cat("Average valenced β for purpose:", round(mean(sem_table$`βv Purpose`, na.rm = TRUE), 3), "\n")
+  cat("Average valenced β for happiness:", round(mean(sem_table$`βv Happiness`, na.rm = TRUE), 3), "\n")
+  n_purpose_stronger <- sum(sem_table$`Valenced diff (P-H)` > 0, na.rm = TRUE)
+  cat("Purpose the stronger beneficial path in", n_purpose_stronger, "of", nrow(sem_table), "outcomes\n")
   n_sig_diff <- sum(sem_table$`p (FDR)` < .05, na.rm = TRUE)
-  cat("Significant differential prediction (FDR < .05):", n_sig_diff, "of", nrow(sem_table), "\n")
+  cat("Significant path differences (FDR < .05):", n_sig_diff, "of", nrow(sem_table),
+      "(these favor whichever construct has the larger beneficial path)\n")
 }
 ```
 
@@ -617,13 +639,29 @@ if (nrow(obs_sem_table) > 0) {
   # Clean labels
   obs_sem_table$Outcome <- gsub("_POMP|_tot|_avg|DRM_goal_|TOT_", "", obs_sem_table$Outcome)
 
+  # ── Valence coding (same logic as §2.1) ──
+  # Distress, daily negative affect, and difficulty are negatively valenced.
+  neg_obs <- c("Distress", "DRM_NA", "Difficulty")
+  flip_obs <- ifelse(obs_sem_table$Outcome %in% neg_obs, -1, 1)
+  obs_sem_table$`βv Purpose`   <- obs_sem_table$`β Purpose`   * flip_obs
+  obs_sem_table$`βv Happiness` <- obs_sem_table$`β Happiness` * flip_obs
+  obs_sem_table$`Valenced diff (P-H)` <- obs_sem_table$`βv Purpose` - obs_sem_table$`βv Happiness`
+
   cat("\n── SEM: Latent IVs → Observed DVs (Strivings + DRM) ──\n")
-  kable(obs_sem_table, digits = 3,
-        caption = "Latent purpose and happiness predicting observed striving and DRM composites") %>%
+  kable(obs_sem_table %>% dplyr::select(Outcome, `β Purpose`, `β Happiness`,
+          `Valenced diff (P-H)`, `p (diff)`, `p (FDR)`, Sig),
+        digits = 3,
+        caption = "Latent purpose and happiness predicting observed striving and DRM composites. Valenced diff sign-corrects distress, negative affect, and difficulty so positive = purpose stronger beneficial path.") %>%
     kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE) %>%
-    footnote(general = "* p < .05 (BH FDR-corrected). FIML with MLR. Latent IVs correct for measurement error in predictors.")
+    footnote(general = "* p < .05 (BH FDR-corrected), testing equality of paths. Valenced diff > 0 = purpose the stronger beneficial predictor (distress/NA/difficulty sign-flipped). FIML with MLR; latent IVs correct for measurement error in predictors.")
 }
 ```
+
+### Reading the SEM results
+
+Two cautions before interpreting these paths. First, the outcomes are differently valenced: depression, anxiety, distress, and daily negative affect are scored so that higher is worse, and both constructs load negatively on them. We sign-correct these outcomes ("valenced diff") so that a positive difference always means purpose is the stronger *beneficial* predictor; without that correction, a construct that is more protective against depression would be miscounted as the weaker one. Second, we do not read the pooled "purpose stronger in X of Y" counts as a verdict. Averaging a path to autonomy against a path to depression is not meaningful, so the per-outcome table is primary.
+
+Read that way, the latent models tell the same context-specific story as the observed-variable manuscript rather than a different one. The two constructs have nearly identical reliability (omega around .87 for both), so disattenuation has little to correct and the latent paths track the observed partials closely. Purpose has the larger path to agentic outcomes -- hope, autonomy, competence, and the striving composites; happiness has the larger path to affective and distress outcomes -- life satisfaction, relatedness, depression, anxiety, and daily positive affect. Among the 20 observed striving and DRM outcomes, no path difference survives FDR correction. The disattenuated evidence converges with the observed-variable evidence: neither construct is uniformly the stronger predictor.
 
 ## 2.3 Comparison Figure: SEM Path Coefficients
 
@@ -1090,20 +1128,22 @@ if (exists("fit_summary")) {
 
 cat("\nSTRUCTURAL MODELS:\n")
 cat("─────────────────\n")
-if (exists("sem_table") && nrow(sem_table) > 0) {
-  cat(sprintf("Latent DVs: Purpose stronger in %d of %d outcomes\n",
-              sum(sem_table$`Diff (P - H)` > 0, na.rm = TRUE), nrow(sem_table)))
-  cat(sprintf("  Significant differential prediction: %d of %d (FDR < .05)\n",
+cat("(Counts use valence-corrected betas; negative outcomes sign-flipped so\n")
+cat(" higher = better. Read per-outcome, not as a verdict — see Part 2.)\n")
+if (exists("sem_table") && nrow(sem_table) > 0 && "Valenced diff (P-H)" %in% names(sem_table)) {
+  cat(sprintf("Latent DVs: Purpose the stronger beneficial path in %d of %d outcomes\n",
+              sum(sem_table$`Valenced diff (P-H)` > 0, na.rm = TRUE), nrow(sem_table)))
+  cat(sprintf("  Significant path differences: %d of %d (FDR < .05)\n",
               sum(sem_table$`p (FDR)` < .05, na.rm = TRUE), nrow(sem_table)))
-  cat(sprintf("  Average β: Purpose = %.3f, Happiness = %.3f\n",
-              mean(sem_table$`β Purpose`, na.rm = TRUE),
-              mean(sem_table$`β Happiness`, na.rm = TRUE)))
+  cat(sprintf("  Average valenced β: Purpose = %.3f, Happiness = %.3f\n",
+              mean(sem_table$`βv Purpose`, na.rm = TRUE),
+              mean(sem_table$`βv Happiness`, na.rm = TRUE)))
 }
 
-if (exists("obs_sem_table") && nrow(obs_sem_table) > 0) {
-  cat(sprintf("\nObserved DVs: Purpose stronger in %d of %d outcomes\n",
-              sum(obs_sem_table$`Diff (P - H)` > 0, na.rm = TRUE), nrow(obs_sem_table)))
-  cat(sprintf("  Significant differential prediction: %d of %d (FDR < .05)\n",
+if (exists("obs_sem_table") && nrow(obs_sem_table) > 0 && "Valenced diff (P-H)" %in% names(obs_sem_table)) {
+  cat(sprintf("\nObserved DVs: Purpose the stronger beneficial path in %d of %d outcomes\n",
+              sum(obs_sem_table$`Valenced diff (P-H)` > 0, na.rm = TRUE), nrow(obs_sem_table)))
+  cat(sprintf("  Significant path differences: %d of %d (FDR < .05)\n",
               sum(obs_sem_table$`p (FDR)` < .05, na.rm = TRUE), nrow(obs_sem_table)))
 }
 
