@@ -26,6 +26,12 @@ PEM Copy of PF Codebook.md.gz
 .Rproj.user
 *.Rproj
 
+# Root-level rendered manuscripts are build artifacts.
+# The canonical published copies live in docs/ (see Makefile `publish`).
+/Purpose3_manuscript.html
+/Purpose3wildchild.html
+/Purpose3_critical_review.html
+
 # OS artifacts
 .DS_Store
 Thumbs.db

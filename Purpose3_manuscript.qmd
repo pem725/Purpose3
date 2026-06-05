@@ -534,7 +534,7 @@ create_comparison_figure <- function(results, title = "") {
 
 # Introduction
 
-The pursuit of well-being is a defining feature of human motivation, yet well-being itself is multifaceted. Two constructs have attracted substantial research attention: subjective happiness---a global evaluation of one's life as happy---and purpose in life---a sense of direction, meaning, and commitment to valued goals that transcend the self. Although these constructs share common variance, theory suggests they differ in important ways that have downstream consequences for how people engage with goals, regulate emotions, and respond to adversity.
+The pursuit of well-being is a defining feature of human motivation, yet well-being is not a unitary construct. Two components have attracted substantial research attention: subjective happiness (a global evaluation of one's life as happy) and purpose in life (a sense of direction, meaning, and commitment to valued goals that transcend the self). Although these constructs share common variance, theory suggests they differ in important ways that have downstream consequences for how people engage with goals, regulate emotions, and respond to adversity.
 
 Subjective happiness, as measured by the Subjective Happiness Scale [SHS; @lyubomirsky1999], captures a broad, trait-like evaluation of general positive functioning. It is stable over time, resistant to contextual influence, and strongly associated with positive mood states. Purpose in life, assessed here via the Brief Purpose in Life measure [@hill2016], reflects a forward-looking orientation toward meaningful aims. Unlike happiness, purpose is inherently goal-directed---it requires effort, tolerates discomfort, and may even predict engagement with difficult but meaningful activities that momentarily reduce happiness.
 
@@ -1047,17 +1047,17 @@ cat(sprintf("Williams tests significant (differential r): %d (%.1f%%)\n",
 
 # Discussion
 
-The present study leveraged a multimethod longitudinal design to test whether purpose in life and subjective happiness make differential contributions to how people pursue goals, regulate emotions, and respond to adversity. Across `r total_outcomes` outcomes spanning personal strivings, daily goal reconstruction, coping strategies, regulatory flexibility, longitudinal life event outcomes, and creativity, purpose showed `r total_purpose_sig` significant unique effects (`r sprintf("%.1f", 100 * total_purpose_sig / total_outcomes)`%) after FDR correction, compared to `r total_happiness_sig` for happiness (`r sprintf("%.1f", 100 * total_happiness_sig / total_outcomes)`%). Williams' tests revealed `r total_williams_sig` instances where the magnitude of correlation differed significantly between purpose and happiness.
+The present study used a multimethod longitudinal design to test whether purpose in life and subjective happiness make differential contributions to how people pursue goals, regulate emotions, and respond to adversity. Across `r total_outcomes` outcomes spanning personal strivings, daily goal reconstruction, coping strategies, regulatory flexibility, longitudinal life event outcomes, and creativity, purpose showed `r total_purpose_sig` significant unique effects (`r sprintf("%.1f", 100 * total_purpose_sig / total_outcomes)`%) after FDR correction, compared to `r total_happiness_sig` for happiness (`r sprintf("%.1f", 100 * total_happiness_sig / total_outcomes)`%). Williams' tests revealed `r total_williams_sig` instances where the magnitude of correlation differed significantly between purpose and happiness.
 
 ## Purpose as a Predictor of Goal-Directed Engagement
 
-Consistent with our hypotheses, purpose emerged as a broader predictor of striving-related outcomes. The finding that purpose---but not happiness---uniquely predicted striving effort, the pursuit of purpose-aligned strivings, and total striving engagement after controlling for the other construct supports the theoretical distinction between these constructs. Purpose is inherently motivational; it provides a framework for organizing goals and sustaining effort toward meaningful aims, even when the process is difficult or unpleasant.
+Consistent with our hypotheses, purpose was a broader predictor of striving-related outcomes. Purpose, but not happiness, uniquely predicted striving effort, the pursuit of purpose-aligned strivings, and total striving engagement after controlling for the other construct. This pattern supports the distinction between the two constructs. Purpose is inherently motivational; it provides a framework for organizing goals and sustaining effort toward meaningful aims, even when the process is difficult or unpleasant.
 
-Notably, neither purpose nor happiness predicted striving harmony---the degree to which personal strivings complement each other. This suggests that goal coherence may be a structural feature of one's goal system rather than a consequence of either hedonic or eudaimonic well-being.
+Neither purpose nor happiness predicted striving harmony---the degree to which personal strivings complement each other. Goal coherence may be a structural feature of one's goal system rather than a consequence of either hedonic or eudaimonic well-being.
 
 ## Divergent Patterns in Daily Life
 
-The DRM analyses revealed a theoretically coherent pattern. Purpose was a stronger predictor of goal-directed engagement during daily episodes---meaning derived from activities, values-consistency, and effort expenditure---while happiness was a stronger predictor of momentary positive emotions during goal pursuit. This dissociation supports the view that purpose and happiness operate through different mechanisms: purpose drives engagement and meaning extraction whereas happiness facilitates positive affective experiences.
+The DRM analyses showed a consistent pattern. Purpose was a stronger predictor of goal-directed engagement during daily episodes---meaning derived from activities, values-consistency, and effort expenditure---while happiness was a stronger predictor of momentary positive emotions during goal pursuit. The two constructs appear to operate through different mechanisms: purpose drives engagement and meaning extraction, while happiness tracks positive affective experience.
 
 ## Regulatory Flexibility and Adaptive Coping
 
@@ -1065,7 +1065,7 @@ We introduced a composite regulatory flexibility index based on strategy reperto
 
 ## Longitudinal Evidence for Purpose as a Resilience Factor
 
-The longitudinal analyses provided the most stringent test of our hypotheses. Baseline purpose uniquely predicted stress-related growth (PTG) at 2-year follow-up after controlling for happiness, consistent with the hypothesis that purpose provides the motivational scaffolding for extracting meaning from adversity. This finding extends prior work on psychological flexibility and resilience by demonstrating that the benefits are not simply a function of feeling happy but reflect a directed orientation toward meaningful goals.
+The longitudinal analyses provided the most stringent test of our hypotheses. Baseline purpose uniquely predicted stress-related growth (PTG) at 2-year follow-up after controlling for happiness, consistent with the hypothesis that purpose supplies the motivation to find meaning in adversity. This finding extends prior work on psychological flexibility and resilience: the benefits are not simply a function of feeling happy but reflect a directed orientation toward meaningful goals.
 
 ## Creativity
 
@@ -1075,7 +1075,7 @@ The inclusion of the Kaufman Domains of Creativity Scale allowed us to examine w
 
 Several limitations warrant discussion. First, striving outcomes were assessed at 6-month follow-up, and we cannot rule out that participants' strivings influenced their purpose ratings rather than the reverse. Second, our regulatory flexibility index was constructed post-hoc from coping strategy data; future research should employ validated measures of regulatory flexibility. Third, attrition from baseline (*N* = 345) to 2-year follow-up (*N* = 119) reduces power for longitudinal analyses. However, the monotone missing pattern (95%) supports the use of available-case analyses and reduces concern about systematic bias.
 
-Fourth, although we used the Brief Purpose in Life measure as our primary purpose operationalization, alternative measures (e.g., the Purpose in Life subscale of Ryff's Psychological Well-Being Scales) may yield different patterns. The convergence of findings across multiple outcome domains, however, strengthens confidence in the robustness of these results.
+Fourth, although we used the Brief Purpose in Life measure as our primary purpose operationalization, alternative measures (e.g., the Purpose in Life subscale of Ryff's Psychological Well-Being Scales) may yield different patterns. The convergence of findings across multiple outcome domains, however, strengthens confidence in these results.
 
 ## Conclusion
 
