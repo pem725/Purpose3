@@ -723,9 +723,11 @@ Network analysis treats each variable as a node and estimates partial correlatio
 #| fig-height: 10
 #| fig-width: 10
 
-# Network analysis needs qgraph + bootnet. bootnet (through 1.6) imports
-# dplyr::id, which dplyr removed in 1.0, so bootnet fails to load on recent
-# dplyr. We skip the network analysis gracefully rather than erroring the whole
+# Network analysis needs qgraph + bootnet. bootnet <= 1.6 imports dplyr::id
+# (removed in dplyr 1.0) and fails to load on recent dplyr; bootnet >= 1.8 fixes
+# this. If the network section is missing from the output, run
+# install.packages("bootnet") to get >= 1.8. We keep the requireNamespace guard
+# so an old bootnet skips this section gracefully instead of erroring the whole
 # render, and we never call install.packages() during a render.
 network_available <- requireNamespace("qgraph", quietly = TRUE) &&
                      requireNamespace("bootnet", quietly = TRUE)
