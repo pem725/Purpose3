@@ -723,16 +723,12 @@ Network analysis treats each variable as a node and estimates partial correlatio
 #| fig-height: 10
 #| fig-width: 10
 
-# Check if bootnet and qgraph are available; install if needed
+# Network analysis needs qgraph + bootnet. bootnet (through 1.6) imports
+# dplyr::id, which dplyr removed in 1.0, so bootnet fails to load on recent
+# dplyr. We skip the network analysis gracefully rather than erroring the whole
+# render, and we never call install.packages() during a render.
 network_available <- requireNamespace("qgraph", quietly = TRUE) &&
                      requireNamespace("bootnet", quietly = TRUE)
-
-if (!network_available) {
-  cat("Installing network analysis packages...\n")
-  install.packages(c("qgraph", "bootnet"), quiet = TRUE)
-  network_available <- requireNamespace("qgraph", quietly = TRUE) &&
-                       requireNamespace("bootnet", quietly = TRUE)
-}
 
 if (network_available) {
   library(qgraph)
@@ -817,7 +813,9 @@ if (network_available) {
   cat("  Purpose strength:", round(purpose_strength, 3), "\n")
   cat("  Happiness strength:", round(happiness_strength, 3), "\n")
 } else {
-  cat("Network analysis packages not available. Skipping.\n")
+  cat("Network analysis skipped: qgraph/bootnet could not be loaded.\n")
+  cat(sprintf("(bootnet imports dplyr::id, removed in dplyr >= 1.0; installed dplyr = %s.)\n",
+              as.character(packageVersion("dplyr"))))
 }
 ```
 
