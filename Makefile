@@ -3,6 +3,8 @@
 #   make draft    - Render ALL docs, copy to docs/, commit, push (publishes to GH Pages)
 #   make render   - Render all HTML locally only (no git)
 #   make publish  - Copy current HTMLs to docs/ and push
+#   make snapshot - Tag a milestone draft (stepping stone) + remind to log rationale
+#                   Usage: make snapshot TAG=v3-name MSG="why this milestone"
 #   make clean    - Remove build artifacts
 
 MANUSCRIPT = Purpose3_manuscript
@@ -10,7 +12,7 @@ WILDCHILD  = Purpose3wildchild
 REVIEW     = Purpose3_critical_review
 DATE       = $(shell date '+%Y-%m-%d %H:%M')
 
-.PHONY: draft render publish clean render-main render-wildchild render-review
+.PHONY: draft render publish snapshot clean render-main render-wildchild render-review
 
 # Full workflow: render all + publish
 draft: render publish
@@ -42,7 +44,7 @@ publish:
 	cp $(REVIEW).html docs/review.html
 	git add docs/index.html docs/wildchild.html docs/review.html
 	git add $(MANUSCRIPT).qmd $(WILDCHILD).qmd $(REVIEW).qmd
-	git add references.bib CLAUDE.md Makefile .gitignore
+	git add references.bib CLAUDE.md Makefile .gitignore CHANGELOG.md
 	git add -f DATA_DICTIONARY.md DATA_DICTIONARY.html PF_Codebook_temp.md
 	git commit -m "Draft update: $(DATE)"
 	git push
@@ -50,6 +52,17 @@ publish:
 	@echo "── Main:     https://pem725.github.io/Purpose3/ ──"
 	@echo "── Wildchild: https://pem725.github.io/Purpose3/wildchild.html ──"
 	@echo "── Review:   https://pem725.github.io/Purpose3/review.html ──"
+
+# Tag a milestone draft (a "stepping stone" we can regenerate or show later).
+# Usage: make snapshot TAG=v3-name MSG="why this milestone matters"
+# Regenerate any tagged draft with: git checkout <TAG> && make render
+snapshot:
+	@test -n "$(TAG)" || { echo "Usage: make snapshot TAG=<name> MSG=\"<why>\""; exit 1; }
+	@test -n "$(MSG)" || { echo "Provide MSG=\"<why this milestone matters>\""; exit 1; }
+	git tag -a "$(TAG)" -m "$(MSG)"
+	git push origin "$(TAG)"
+	@echo "── Tagged and pushed $(TAG) ──"
+	@echo "── Now add a CHANGELOG.md entry (What changed + Why) for this milestone. ──"
 
 # Remove build artifacts
 clean:

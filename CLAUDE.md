@@ -63,6 +63,29 @@ dat = pd.read_csv("alldatPvH4LLM.csv.gz")
 
 The SPSS file can be read with `haven::read_sav()` (R) or `pyreadstat.read_sav()` (Python).
 
+## Change Tracking & Draft Versioning (routine — do this every substantive session)
+
+We preserve the *reasoning* behind changes and the ability to regenerate any prior
+draft. The goal is to show, draft by draft, how we characterized the findings and
+why we revised them. Bake this in:
+
+1. **`CHANGELOG.md`** — when the paper's claims, framing, methods, or results change
+   in a substantive way, add a dated entry recording **what** changed and **why**.
+   Capture the reasoning, not just the edit. Routine re-renders and typo fixes do
+   not need entries; decisions do. Newest entries on top.
+2. **Tag milestone drafts** — when a draft reaches a coherent milestone (a framing
+   we would want to revisit or show), create an annotated tag with
+   `make snapshot TAG=<name> MSG="<why>"` (descriptive names, e.g.
+   `v2-context-specific`). Any tagged draft regenerates with
+   `git checkout <tag> && make render`.
+3. **Commit messages** still record every change at the commit level; the changelog
+   is the curated, human-readable layer above them.
+4. **Shared submission folder** (`1 Patrick Todd/Happiness and Purpose paper 3/`):
+   on publish, refresh the rendered products and a copy of `CHANGELOG.md` there so
+   co-authors see the evolution and rationale. Do **not** copy the dataset or `.qmd`
+   sources to that folder — it holds finished products only.
+5. Do **not** add a `Co-Authored-By: Claude` trailer to commits on this project.
+
 ## Important Notes
 
 - All composite scores use POMP (Percent of Maximum Possible) scaling: 0–100
